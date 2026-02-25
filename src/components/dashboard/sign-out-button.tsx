@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { account } from "@/lib/appwrite/client";
+import { clearSessionSyncCookie } from "@/lib/session-sync-cookie";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 
@@ -12,6 +13,7 @@ export function SignOutButton() {
     try {
       await account.deleteSession("current");
     } finally {
+      clearSessionSyncCookie();
       router.push("/");
       router.refresh();
     }

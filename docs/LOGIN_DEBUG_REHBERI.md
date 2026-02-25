@@ -73,8 +73,12 @@ Bu doküman, Appwrite + Next.js giriş sorunlarını adım adım nasıl teşhis 
 
 ### 3.1 Web Platform (Hostname)
 
-- **Nereye girilir:** Appwrite Console → Projeniz → **Overview** (veya proje ilk kurulumunda “Add platform”) **veya** **Auth → Settings** (bazı sürümlerde “Platforms” burada).
-- **Ne yapılır:** “Add platform” → **Web** seçin.
+- **Nereye girilir (iki yol):**
+  1. **Genel Bakış (Overview):** Sol menüde **en üstteki “Genel Bakış”**a tıklayın (Yetki/Auth değil). Sayfada **aşağı kaydırın**; **“Integrations”** veya **“Platform ekle”** bölümünü bulun. Oradan **Add platform** → **Web App**.
+  2. **Doğrudan link (proje ID ile):** Tarayıcıda şu adresi açın (kendi proje ID’nizi kullanın):  
+     `https://cloud.appwrite.io/console/699ec6b6003b0eff8755/settings/domains`  
+     Bu sayfada platform/domain ekleme alanı olmalı.
+- **Ne yapılır:** “Add platform” / “Web” / “Web App” seçin.
 - **Hostname nasıl yazılır:**
   - **Doğru:** `sosyalcan.vercel.app` veya `localhost` (protokol ve port **yok**).
   - **Yanlış:** `https://sosyalcan.vercel.app`, `http://localhost:3000`, `https://sosyalcan.vercel.app/`.

@@ -3,6 +3,7 @@
 import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { account, getAppwriteConfigStatus } from "@/lib/appwrite/client";
+import { setSessionSyncCookie } from "@/lib/session-sync-cookie";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -45,11 +46,35 @@ function LoginForm() {
     setLoading(true);
     try {
       await account.createEmailPasswordSession(email, password);
+      setSessionSyncCookie();
       router.push(callbackUrl);
       router.refresh();
     } catch (err: unknown) {
       const detail = getAppwriteErrorDetail(err);
       const msg = detail.message;
+      const isSessionExists = detail.type === "user_session_already_exists";
+
+      // Zaten aktif oturum (localStorage'da): hayalet oturumu silip tekrar dene
+      if (isSessionExists) {
+        try {
+          await account.deleteSession("current");
+        } catch {
+          await account.deleteSessions();
+        }
+        try {
+          await account.createEmailPasswordSession(email, password);
+          setSessionSyncCookie();
+          router.push(callbackUrl);
+          router.refresh();
+          return;
+        } catch (retryErr) {
+          console.error("[Login] deleteSession + retry failed:", retryErr);
+          setError("Mevcut oturum kapatılamadı. Lütfen çıkış yapıp tekrar deneyin veya tarayıcı çerezlerini temizleyin.");
+          setErrorDetail(null);
+          setLoading(false);
+          return;
+        }
+      }
 
       // Tarayıcı konsoluna tam hata (F12 → Console)
       console.error("[Login] createEmailPasswordSession failed:", {
