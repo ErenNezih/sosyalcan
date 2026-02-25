@@ -55,7 +55,7 @@ function HeroSection() {
         muted
         playsInline
       >
-        <source src="/assets/hero-loop.mp4" type="video/mp4" />
+        <source src="/assets/ssstik.io_1771887723987%20(1).mp4" type="video/mp4" />
       </video>
 
       <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/80 to-black" />

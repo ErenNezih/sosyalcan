@@ -20,10 +20,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // /dashboard ve altı: oturum zorunlu
+  // /dashboard ve altı: oturum zorunlu — yoksa login'e yönlendir (Demo Gör akışı)
   if (pathname.startsWith("/dashboard")) {
     if (!hasSession) {
-      return NextResponse.redirect(new URL("/", request.url));
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("callbackUrl", pathname);
+      return NextResponse.redirect(loginUrl);
     }
     return NextResponse.next();
   }
