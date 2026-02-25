@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { getSessionFromCookieStore } from "@/lib/appwrite/server";
 import { SidebarNav } from "@/components/dashboard/sidebar-nav";
@@ -10,8 +11,16 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const cookieStore = await cookies();
-  const session = await getSessionFromCookieStore((name) => cookieStore.get(name) ?? undefined);
+  let session: Awaited<ReturnType<typeof getSessionFromCookieStore>> = null;
+  try {
+    const cookieStore = await cookies();
+    session = await getSessionFromCookieStore((name) => cookieStore.get(name) ?? undefined);
+  } catch (error) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("DASHBOARD_SSR_ERROR layout getSession:", error);
+    }
+    redirect("/login?callbackUrl=/dashboard");
+  }
 
   return (
     <div className="flex min-h-screen bg-background">

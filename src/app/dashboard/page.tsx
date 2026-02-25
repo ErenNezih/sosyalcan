@@ -12,110 +12,178 @@ import { ContactAlertsWidget } from "@/components/dashboard/contact-alerts-widge
 const dbId = APPWRITE.databaseId;
 
 async function WidgetMonthlyRevenue() {
-  const start = startOfMonth(new Date()).toISOString();
-  const end = endOfMonth(new Date()).toISOString();
-  const { databases } = getAppwriteAdmin();
-  const [incomeRes, expenseRes] = await Promise.all([
-    databases.listDocuments(dbId, APPWRITE.collections.transactions, [
-      Query.equal("type", "income"),
-      Query.greaterThanEqual("date", start),
-      Query.lessThanEqual("date", end),
-    ]),
-    databases.listDocuments(dbId, APPWRITE.collections.transactions, [
-      Query.equal("type", "expense"),
-      Query.greaterThanEqual("date", start),
-      Query.lessThanEqual("date", end),
-    ]),
-  ]);
-  let incomeSum = 0;
-  let expenseSum = 0;
-  for (const d of incomeRes.documents) incomeSum += Number((d as unknown as { amount?: number }).amount ?? 0);
-  for (const d of expenseRes.documents) expenseSum += Number((d as unknown as { amount?: number }).amount ?? 0);
-  const net = incomeSum - expenseSum;
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
-          Aylık Net Ciro
-        </CardTitle>
-        <TrendingUp className="h-4 w-4 text-primary" />
-      </CardHeader>
-      <CardContent>
-        <p className="text-2xl font-bold text-primary">
-          {new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" }).format(net)}
-        </p>
-      </CardContent>
-    </Card>
-  );
+  try {
+    const start = startOfMonth(new Date()).toISOString();
+    const end = endOfMonth(new Date()).toISOString();
+    const { databases } = getAppwriteAdmin();
+    const [incomeRes, expenseRes] = await Promise.all([
+      databases.listDocuments(dbId, APPWRITE.collections.transactions, [
+        Query.equal("type", "income"),
+        Query.greaterThanEqual("date", start),
+        Query.lessThanEqual("date", end),
+      ]),
+      databases.listDocuments(dbId, APPWRITE.collections.transactions, [
+        Query.equal("type", "expense"),
+        Query.greaterThanEqual("date", start),
+        Query.lessThanEqual("date", end),
+      ]),
+    ]);
+    let incomeSum = 0;
+    let expenseSum = 0;
+    for (const d of incomeRes.documents) incomeSum += Number((d as unknown as { amount?: number }).amount ?? 0);
+    for (const d of expenseRes.documents) expenseSum += Number((d as unknown as { amount?: number }).amount ?? 0);
+    const net = incomeSum - expenseSum;
+    return (
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            Aylık Net Ciro
+          </CardTitle>
+          <TrendingUp className="h-4 w-4 text-primary" />
+        </CardHeader>
+        <CardContent>
+          <p className="text-2xl font-bold text-primary">
+            {new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" }).format(net)}
+          </p>
+        </CardContent>
+      </Card>
+    );
+  } catch (error) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("DASHBOARD_SSR_ERROR WidgetMonthlyRevenue:", error);
+    }
+    return (
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">Aylık Net Ciro</CardTitle>
+          <TrendingUp className="h-4 w-4 text-primary" />
+        </CardHeader>
+        <CardContent>
+          <p className="text-2xl font-bold text-muted-foreground">—</p>
+        </CardContent>
+      </Card>
+    );
+  }
 }
 
 async function WidgetNewLeads() {
-  const { databases } = getAppwriteAdmin();
-  const res = await databases.listDocuments(dbId, APPWRITE.collections.leads, [
-    Query.isNull("converted_at"),
-    Query.limit(1),
-  ]);
-  const count = res.total;
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
-          Yeni Potansiyeller
-        </CardTitle>
-        <Users className="h-4 w-4 text-primary" />
-      </CardHeader>
-      <CardContent>
-        <p className="text-2xl font-bold">{count}</p>
-      </CardContent>
-    </Card>
-  );
+  try {
+    const { databases } = getAppwriteAdmin();
+    const res = await databases.listDocuments(dbId, APPWRITE.collections.leads, [
+      Query.isNull("converted_at"),
+      Query.limit(1),
+    ]);
+    const count = res.total;
+    return (
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            Yeni Potansiyeller
+          </CardTitle>
+          <Users className="h-4 w-4 text-primary" />
+        </CardHeader>
+        <CardContent>
+          <p className="text-2xl font-bold">{count}</p>
+        </CardContent>
+      </Card>
+    );
+  } catch (error) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("DASHBOARD_SSR_ERROR WidgetNewLeads:", error);
+    }
+    return (
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">Yeni Potansiyeller</CardTitle>
+          <Users className="h-4 w-4 text-primary" />
+        </CardHeader>
+        <CardContent>
+          <p className="text-2xl font-bold text-muted-foreground">—</p>
+        </CardContent>
+      </Card>
+    );
+  }
 }
 
 async function WidgetTodayAppointments() {
-  const start = startOfDay(new Date()).toISOString();
-  const end = endOfDay(new Date()).toISOString();
-  const { databases } = getAppwriteAdmin();
-  const res = await databases.listDocuments(dbId, APPWRITE.collections.appointments, [
-    Query.greaterThanEqual("start", start),
-    Query.lessThanEqual("start", end),
-    Query.limit(1),
-  ]);
-  const count = res.total;
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
-          Bugünün Randevuları
-        </CardTitle>
-        <Calendar className="h-4 w-4 text-primary" />
-      </CardHeader>
-      <CardContent>
-        <p className="text-2xl font-bold">{count}</p>
-      </CardContent>
-    </Card>
-  );
+  try {
+    const start = startOfDay(new Date()).toISOString();
+    const end = endOfDay(new Date()).toISOString();
+    const { databases } = getAppwriteAdmin();
+    const res = await databases.listDocuments(dbId, APPWRITE.collections.appointments, [
+      Query.greaterThanEqual("start", start),
+      Query.lessThanEqual("start", end),
+      Query.limit(1),
+    ]);
+    const count = res.total;
+    return (
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            Bugünün Randevuları
+          </CardTitle>
+          <Calendar className="h-4 w-4 text-primary" />
+        </CardHeader>
+        <CardContent>
+          <p className="text-2xl font-bold">{count}</p>
+        </CardContent>
+      </Card>
+    );
+  } catch (error) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("DASHBOARD_SSR_ERROR WidgetTodayAppointments:", error);
+    }
+    return (
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">Bugünün Randevuları</CardTitle>
+          <Calendar className="h-4 w-4 text-primary" />
+        </CardHeader>
+        <CardContent>
+          <p className="text-2xl font-bold text-muted-foreground">—</p>
+        </CardContent>
+      </Card>
+    );
+  }
 }
 
 async function WidgetActiveSubscriptions() {
-  const { databases } = getAppwriteAdmin();
-  const res = await databases.listDocuments(dbId, APPWRITE.collections.subscriptions, [
-    Query.equal("status", "active"),
-    Query.limit(1),
-  ]);
-  const count = res.total;
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
-          Aktif Abonelikler
-        </CardTitle>
-        <CreditCard className="h-4 w-4 text-primary" />
-      </CardHeader>
-      <CardContent>
-        <p className="text-2xl font-bold">{count}</p>
-      </CardContent>
-    </Card>
-  );
+  try {
+    const { databases } = getAppwriteAdmin();
+    const res = await databases.listDocuments(dbId, APPWRITE.collections.subscriptions, [
+      Query.equal("status", "active"),
+      Query.limit(1),
+    ]);
+    const count = res.total;
+    return (
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            Aktif Abonelikler
+          </CardTitle>
+          <CreditCard className="h-4 w-4 text-primary" />
+        </CardHeader>
+        <CardContent>
+          <p className="text-2xl font-bold">{count}</p>
+        </CardContent>
+      </Card>
+    );
+  } catch (error) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("DASHBOARD_SSR_ERROR WidgetActiveSubscriptions:", error);
+    }
+    return (
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">Aktif Abonelikler</CardTitle>
+          <CreditCard className="h-4 w-4 text-primary" />
+        </CardHeader>
+        <CardContent>
+          <p className="text-2xl font-bold text-muted-foreground">—</p>
+        </CardContent>
+      </Card>
+    );
+  }
 }
 
 function WidgetSkeleton() {

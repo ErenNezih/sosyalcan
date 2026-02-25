@@ -65,12 +65,15 @@ export async function getSessionFromRequest(request: Request): Promise<AppwriteU
 
 /**
  * Next.js cookies() (Server Component / layout) ile session. Cookie store'dan değer alıp doğrular.
+ * Çerez yoksa veya value boşsa null; SSR çökmesini önlemek için güvenli okuma.
  */
 export async function getSessionFromCookieStore(
-  getCookie: (name: string) => { value: string } | undefined
+  getCookie: (name: string) => { value?: string } | undefined
 ): Promise<AppwriteUser | null> {
   const cookieName = getAppwriteSessionCookieName();
-  const sessionValue = getCookie(cookieName)?.value?.trim();
+  const cookie = getCookie(cookieName);
+  if (!cookie || typeof cookie.value !== "string") return null;
+  const sessionValue = cookie.value.trim();
   if (!sessionValue) return null;
   return getSessionFromSessionValue(sessionValue);
 }
@@ -94,7 +97,10 @@ async function getSessionFromSessionValue(sessionValue: string): Promise<Appwrit
       name: user.name ?? undefined,
       emailVerification: user.emailVerification ?? false,
     };
-  } catch {
+  } catch (error) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("DASHBOARD_SSR_ERROR getSessionFromSessionValue:", error);
+    }
     return null;
   }
 }

@@ -4,22 +4,23 @@ import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 
 export async function LeadStreamTable() {
-  const { databases } = getAppwriteAdmin();
-  const res = await databases.listDocuments(APPWRITE.databaseId, APPWRITE.collections.leads, [
-    Query.orderDesc("$createdAt"),
-    Query.limit(20),
-  ]);
-  const leads = mapDocumentList(res);
+  try {
+    const { databases } = getAppwriteAdmin();
+    const res = await databases.listDocuments(APPWRITE.databaseId, APPWRITE.collections.leads, [
+      Query.orderDesc("$createdAt"),
+      Query.limit(20),
+    ]);
+    const leads = mapDocumentList(res);
 
-  if (leads.length === 0) {
+    if (leads.length === 0) {
+      return (
+        <div className="glass-card rounded-lg p-8 text-center text-muted-foreground">
+          Henüz vitrinden düşen etkileşim yok.
+        </div>
+      );
+    }
+
     return (
-      <div className="glass-card rounded-lg p-8 text-center text-muted-foreground">
-        Henüz vitrinden düşen etkileşim yok.
-      </div>
-    );
-  }
-
-  return (
     <div className="overflow-hidden rounded-lg border border-white/10">
       <table className="w-full text-left text-sm">
         <thead>
@@ -61,4 +62,14 @@ export async function LeadStreamTable() {
       </table>
     </div>
   );
+  } catch (error) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("DASHBOARD_SSR_ERROR LeadStreamTable:", error);
+    }
+    return (
+      <div className="glass-card rounded-lg p-8 text-center text-muted-foreground">
+        Veri yüklenirken bir hata oluştu.
+      </div>
+    );
+  }
 }
