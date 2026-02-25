@@ -1,0 +1,114 @@
+"use client";
+
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { leadSchema, LEAD_SOURCES, LEAD_TEMPERATURES, type LeadFormValues } from "@/lib/validations/lead";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
+
+export function AddLeadForm({
+  onSuccess,
+  onCancel,
+}: {
+  onSuccess: () => void;
+  onCancel: () => void;
+}) {
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    watch,
+    setValue,
+  } = useForm<LeadFormValues>({
+    resolver: zodResolver(leadSchema),
+    defaultValues: { source: "manual", temperature: "WARM" },
+  });
+
+  const temperature = watch("temperature");
+
+  async function onSubmit(data: LeadFormValues) {
+    const res = await fetch("/api/leads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
+      toast.error(e?.error?.message ?? "Potansiyel eklenemedi");
+      return;
+    }
+    toast.success("Potansiyel eklendi.");
+    onSuccess();
+  }
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 sm:grid-cols-2">
+      <div>
+        <Label htmlFor="name">Ad Soyad</Label>
+        <Input id="name" className="mt-1 bg-white/5" {...register("name")} />
+        {errors.name && <p className="mt-1 text-xs text-destructive">{errors.name.message}</p>}
+      </div>
+      <div>
+        <Label htmlFor="email">E-posta</Label>
+        <Input id="email" type="email" className="mt-1 bg-white/5" {...register("email")} />
+        {errors.email && <p className="mt-1 text-xs text-destructive">{errors.email.message}</p>}
+      </div>
+      <div>
+        <Label htmlFor="phone">Telefon</Label>
+        <Input id="phone" className="mt-1 bg-white/5" {...register("phone")} />
+      </div>
+      <div>
+        <Label htmlFor="sector">Sektör</Label>
+        <Input id="sector" className="mt-1 bg-white/5" {...register("sector")} />
+      </div>
+      <div>
+        <Label htmlFor="budget">Bütçe</Label>
+        <Input id="budget" className="mt-1 bg-white/5" {...register("budget")} />
+      </div>
+      <div className="sm:col-span-2">
+        <Label>Kaynak (Bizi nereden buldu?)</Label>
+        <select
+          className="mt-1 flex h-10 w-full rounded-md border border-input bg-white/5 px-3 py-2 text-sm"
+          {...register("source")}
+        >
+          {LEAD_SOURCES.map((s) => (
+            <option key={s.value} value={s.value}>{s.label}</option>
+          ))}
+        </select>
+      </div>
+      <div className="sm:col-span-2">
+        <Label>Müşteri sıcaklığı</Label>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {LEAD_TEMPERATURES.map((t) => (
+            <button
+              key={t.value}
+              type="button"
+              onClick={() => setValue("temperature", t.value)}
+              className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
+                temperature === t.value
+                  ? "border-primary bg-primary/20 text-primary"
+                  : "border-white/10 bg-white/5 hover:bg-white/10"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="sm:col-span-2">
+        <Label htmlFor="customQuestionAnswer">Özel soru yanıtı</Label>
+        <Input id="customQuestionAnswer" className="mt-1 bg-white/5" {...register("customQuestionAnswer")} />
+      </div>
+      <div className="sm:col-span-2 flex justify-end gap-2">
+        <Button type="button" variant="outline" onClick={onCancel}>
+          İptal
+        </Button>
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? "Kaydediliyor..." : "Kaydet"}
+        </Button>
+      </div>
+    </form>
+  );
+}
