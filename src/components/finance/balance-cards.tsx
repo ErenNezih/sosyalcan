@@ -9,8 +9,8 @@ type Balance = {
 };
 
 const LABELS: Record<string, string> = {
-  EREN: "Eren (%30)",
-  KERIM: "Kerim (%30)",
+  EREN: "Kullanıcı 1 (%30)",
+  KERIM: "Kullanıcı 2 (%30)",
   GIDER: "Gider Hesabı (%15)",
   BIRIKIM: "Birikim (%15)",
   ACIL_DURUM: "Acil Durum / Kasa (%10)",

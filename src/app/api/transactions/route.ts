@@ -72,14 +72,13 @@ export async function POST(request: Request) {
   }
 
   const { databases, users } = getAppwriteAdmin();
-  let erenId: string | null = null;
-  let kerimId: string | null = null;
+  let user1Id: string | null = null;
+  let user2Id: string | null = null;
   try {
     const userList = await users.list();
-    for (const u of userList.users) {
-      if (u.email === "eren@sosyalcan.com") erenId = u.$id;
-      if (u.email === "kerim@sosyalcan.com") kerimId = u.$id;
-    }
+    const list = userList.users.slice(0, 2);
+    if (list.length > 0) user1Id = list[0].$id;
+    if (list.length > 1) user2Id = list[1].$id;
   } catch {
     // ignore
   }
@@ -108,7 +107,7 @@ export async function POST(request: Request) {
           percentage,
           amount: Number(splitAmount),
         });
-        const userId = bucket === "EREN" ? erenId : bucket === "KERIM" ? kerimId : null;
+        const userId = bucket === "EREN" ? user1Id : bucket === "KERIM" ? user2Id : null;
         const balanceQueries = [Query.equal("bucket", bucket)];
         if (userId) balanceQueries.push(Query.equal("user_id", userId));
         else balanceQueries.push(Query.isNull("user_id"));

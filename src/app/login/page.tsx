@@ -24,8 +24,18 @@ function LoginForm() {
       await account.createEmailPasswordSession(email, password);
       router.push(callbackUrl);
       router.refresh();
-    } catch {
-      setError("Geçersiz e-posta veya şifre.");
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message?: string }).message)
+          : "";
+      if (/verif|doğrulan|unverified|confirm/i.test(msg)) {
+        setError("E-posta adresiniz henüz doğrulanmamış. Appwrite Console → Auth → kullanıcıya tıklayıp «Verify account» ile doğrulayın.");
+      } else if (msg) {
+        setError(msg);
+      } else {
+        setError("Geçersiz e-posta veya şifre.");
+      }
     } finally {
       setLoading(false);
     }
@@ -49,7 +59,7 @@ function LoginForm() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="mt-1 bg-white/5 border-white/10"
-              placeholder="eren@sosyalcan.com"
+              placeholder="e-posta@ornek.com"
               required
             />
           </div>

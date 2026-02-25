@@ -48,7 +48,7 @@ export default function FinancePage() {
 
   const safeBalances = Array.isArray(balances) ? balances : [];
   const donutData = safeBalances.map((b) => ({
-    name: b.bucket === "EREN" ? "Eren" : b.bucket === "KERIM" ? "Kerim" : b.bucket === "GIDER" ? "Gider" : b.bucket === "BIRIKIM" ? "Birikim" : "Acil Durum",
+    name: b.bucket === "EREN" ? "Kullanıcı 1" : b.bucket === "KERIM" ? "Kullanıcı 2" : b.bucket === "GIDER" ? "Gider" : b.bucket === "BIRIKIM" ? "Birikim" : "Acil Durum",
     value: Number(b.balance),
   }));
 

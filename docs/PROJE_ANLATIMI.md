@@ -2,7 +2,7 @@
 
 ## 1. Proje Nedir?
 
-**Sosyalcan Komuta Merkezi** (`sosyalcan-komuta-merkezi` v0.1.0), **Sosyalcan** markası için tek bir panelde toplanmış bir **ERP/CRM operasyon paneli**dir. Amaç: kokpit, müşteri/lead yönetimi, takvim, to-do, finans, blog/SEO ve ayarları tek uygulama içinde yönetmek. **Kayıt yok**; sadece veritabanında tanımlı **SUPER_ADMIN** kullanıcılar giriş yapabilir (örn. Eren & Kerim — seed ile oluşturulur).
+**Sosyalcan Komuta Merkezi** (`sosyalcan-komuta-merkezi` v0.1.0), **Sosyalcan** markası için tek bir panelde toplanmış bir **ERP/CRM operasyon paneli**dir. Amaç: kokpit, müşteri/lead yönetimi, takvim, to-do, finans, blog/SEO ve ayarları tek uygulama içinde yönetmek. **Kayıt yok**; sadece veritabanında tanımlı **SUPER_ADMIN** kullanıcılar giriş yapabilir (Appwrite kullanıcıları ile giriş yapılır).
 
 ---
 
@@ -33,7 +33,7 @@ Kurulum için: `npm install`, `.env` (DATABASE_URL, NEXTAUTH_SECRET, NEXTAUTH_UR
 SOSYALCAN/
 ├── prisma/
 │   ├── schema.prisma   # Tüm modeller ve enum'lar
-│   └── seed.ts         # Eren & Kerim SUPER_ADMIN kullanıcıları (şifre: changeme)
+│   └── seed.ts         # (Appwrite kullanıcıları Console'dan oluşturulur)
 ├── src/
 │   ├── app/            # Next.js App Router
 │   │   ├── layout.tsx        # Kök layout (Inter, dark, AuthSessionProvider, Toaster)
@@ -116,7 +116,7 @@ SOSYALCAN/
 - **Auth:** Tüm korumalı API'ler `getServerSession(authOptions)` ile session alır; `session?.user?.id` yoksa 401.
 - **Audit:** Önemli aksiyonlarda src/lib/audit.ts `auditLog({ userId, action, entityType, entityId, payload })` çağrılır (örn. lead.converted).
 - **Hata:** src/lib/db-error.ts ile Prisma bağlantı hatalarında 503 ve anlamlı mesaj.
-- **Finans:** Gelir eklendiğinde `splitAmountKurusSafe` ile split'ler ve Balance güncellemeleri transaction içinde yapılır; Eren/Kerim id'leri sabit email ile çözülür (src/app/api/transactions/route.ts).
+- **Finans:** Gelir eklendiğinde `splitAmountKurusSafe` ile split'ler ve Balance güncellemeleri transaction içinde yapılır; Kullanıcı 1/2 bakiye ataması projedeki ilk iki kullanıcı ile yapılır (src/app/api/transactions/route.ts).
 
 Önemli API örnekleri:
 - `POST /api/leads/[id]/convert` — Lead → Customer dönüşümü.
@@ -177,7 +177,7 @@ flowchart LR
 | Konu | Açıklama |
 |------|----------|
 | **Amaç** | Tek panelde ERP/CRM: kokpit, lead/müşteri, takvim, to-do, finans, blog, ayarlar |
-| **Kullanıcılar** | Sadece SUPER_ADMIN (seed: Eren, Kerim); kayıt yok |
+| **Kullanıcılar** | Appwrite kullanıcıları; kayıt sayfası yok |
 | **Veritabanı** | PostgreSQL + Prisma; Lead→Customer, Subscription, Transaction+Split+Balance, Task, Appointment, Post, AuditLog, Notification |
 | **Finans** | Gelir/gider; gelirde sabit %30/30/15/15/10 dağılım; kuruş-safe hesaplama |
 | **Güvenlik** | NextAuth JWT + middleware; production'da /dashboard korumalı |

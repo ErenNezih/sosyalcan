@@ -150,11 +150,11 @@ function FeatureSection() {
               </p>
               <div className="mt-6 grid grid-cols-5 gap-2 text-[11px] text-zinc-300">
                 <div className="space-y-1">
-                  <p className="text-zinc-500">Eren</p>
+                  <p className="text-zinc-500">Kullanıcı 1</p>
                   <p className="font-medium text-zinc-100">30%</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-zinc-500">Kerim</p>
+                  <p className="text-zinc-500">Kullanıcı 2</p>
                   <p className="font-medium text-zinc-100">30%</p>
                 </div>
                 <div className="space-y-1">
@@ -194,7 +194,7 @@ function FeatureSection() {
           </h2>
           <p className="max-w-md text-sm leading-relaxed text-zinc-400">
             Abonelikler, tek seferlik işler ve giderleriniz tek kokpitte
-            birleşir. Sosyalcan, her tahsilatı otomatik olarak Eren, Kerim,
+            birleşir. Sosyalcan, her tahsilatı otomatik olarak kullanıcı hesapları,
             gider, birikim ve acil durum hesaplarına oranlayarak dağıtır.
           </p>
         </motion.div>
