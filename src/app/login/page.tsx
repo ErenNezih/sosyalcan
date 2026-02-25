@@ -1,36 +1,73 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { account } from "@/lib/appwrite/client";
+import { account, getAppwriteConfigStatus } from "@/lib/appwrite/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+
+/** Appwrite hatasında code/message/type/response çıkarır (debug için). */
+function getAppwriteErrorDetail(err: unknown): { message: string; code?: number; type?: string; response?: string } {
+  if (!err || typeof err !== "object") return { message: String(err) };
+  const o = err as Record<string, unknown>;
+  return {
+    message: typeof o.message === "string" ? o.message : "",
+    code: typeof o.code === "number" ? o.code : undefined,
+    type: typeof o.type === "string" ? o.type : undefined,
+    response: typeof o.response === "string" ? o.response : undefined,
+  };
+}
 
 function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
 
+  // Debug: Sayfa yüklendiğinde Appwrite env durumunu konsola yaz (F12 → Console)
+  useEffect(() => {
+    const status = getAppwriteConfigStatus();
+    console.log("[Login] Appwrite config:", status.message);
+    if (!status.endpointOk || !status.projectIdOk) {
+      console.warn("[Login] Eksik env — giriş isteği başarısız olabilir.", status);
+    }
+  }, []);
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setErrorDetail(null);
     setLoading(true);
     try {
       await account.createEmailPasswordSession(email, password);
       router.push(callbackUrl);
       router.refresh();
     } catch (err: unknown) {
-      const msg =
-        err && typeof err === "object" && "message" in err
-          ? String((err as { message?: string }).message)
-          : "";
+      const detail = getAppwriteErrorDetail(err);
+      const msg = detail.message;
+
+      // Tarayıcı konsoluna tam hata (F12 → Console)
+      console.error("[Login] createEmailPasswordSession failed:", {
+        message: detail.message,
+        code: detail.code,
+        type: detail.type,
+        response: detail.response,
+        raw: err,
+      });
+
+      setErrorDetail(
+        [detail.code != null && `Code: ${detail.code}`, detail.type && `Type: ${detail.type}`, detail.response && `Response: ${detail.response}`]
+          .filter(Boolean)
+          .join(" · ") || null
+      );
+
       if (/network request failed|failed to fetch|load failed|net::/i.test(msg)) {
-        setError("Appwrite sunucusuna bağlanılamadı. Lütfen internet bağlantınızı ve Appwrite Console → Auth → Settings → Platforms bölümünde bu sitenin adresinin (örn. localhost:3000 veya Vercel URL) eklendiğini kontrol edin.");
+        setError("Appwrite sunucusuna bağlanılamadı. Appwrite Console'da projeye bir Web platformu ekleyin: Overview veya Auth → Settings'te «Add platform» → Web, Hostname olarak bu sitenin adresi (örn. localhost veya sosyalcan.vercel.app — https olmadan).");
       } else if (/verif|doğrulan|unverified|confirm/i.test(msg)) {
         setError("E-posta adresiniz henüz doğrulanmamış. Appwrite Console → Auth → kullanıcıya tıklayıp «Verify account» ile doğrulayın.");
       } else if (msg) {
@@ -77,7 +114,14 @@ function LoginForm() {
             />
           </div>
           {error && (
-            <p className="text-sm text-destructive">{error}</p>
+            <div className="space-y-1">
+              <p className="text-sm text-destructive">{error}</p>
+              {errorDetail && (
+                <p className="text-xs text-muted-foreground font-mono break-all" title="F12 Console'da daha fazla detay">
+                  Hata detayı: {errorDetail}
+                </p>
+              )}
+            </div>
           )}
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "Giriş yapılıyor..." : "Giriş"}
