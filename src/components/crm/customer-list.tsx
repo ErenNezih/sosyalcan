@@ -1,16 +1,10 @@
 "use client";
 
-import type { Customer, Lead, Subscription } from "@prisma/client";
+import type { Customer, Lead, Subscription, CustomerWithRelations } from "@/types/crm";
 import { CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export type CustomerWithRelations = Customer & {
-  lead: Lead | null;
-  subscriptions: Subscription[];
-  lastContactAt?: string | null;
-  daysSinceContact?: number | null;
-  contactPulse?: "green" | "yellow" | "red";
-};
+export type { CustomerWithRelations };
 
 function PulseDot({ pulse }: { pulse?: "green" | "yellow" | "red" }) {
   if (!pulse) return null;
@@ -57,7 +51,9 @@ export function CustomerList({
         </thead>
         <tbody>
           {customers.map((c) => {
-            const activeSub = c.subscriptions.find((s) => s.status === "active");
+            const subs = c.subscriptions ?? [];
+            const activeSub = subs.find((s) => s.status === "active");
+            const pkgType = activeSub?.packageType ?? (activeSub as { package_type?: string })?.package_type;
             return (
               <tr key={c.id} className="border-b border-white/5 hover:bg-white/5">
                 <td className="px-4 py-3 align-middle">
@@ -68,7 +64,7 @@ export function CustomerList({
                 <td className="px-4 py-3">
                   {activeSub ? (
                     <span className="text-primary">
-                      {activeSub.packageType} – {Number(activeSub.amount).toLocaleString("tr-TR")} TL
+                      {pkgType ?? "-"} – {Number(activeSub.amount).toLocaleString("tr-TR")} TL
                     </span>
                   ) : (
                     <span className="text-muted-foreground">Paket atanmadı</span>

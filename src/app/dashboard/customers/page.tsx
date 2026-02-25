@@ -11,8 +11,7 @@ import { CustomerList } from "@/components/crm/customer-list";
 import { LeadList } from "@/components/crm/lead-list";
 import { AddLeadForm } from "@/components/crm/add-lead-form";
 import { AddDirectCustomerForm } from "@/components/crm/add-direct-customer-form";
-import type { Lead } from "@prisma/client";
-import type { CustomerWithRelations } from "@/components/crm/customer-list";
+import type { Lead, CustomerWithRelations } from "@/types/crm";
 
 export default function CustomersPage() {
   const [leads, setLeads] = useState<Lead[]>([]);

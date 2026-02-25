@@ -31,7 +31,7 @@ if (existsSync(envPath)) {
 const ENDPOINT = process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT ?? "https://cloud.appwrite.io/v1";
 const PROJECT_ID = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID ?? "";
 const API_KEY = process.env.APPWRITE_API_KEY ?? "";
-const DATABASE_ID = process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID ?? "sosyalcan_db";
+const DATABASE_ID = process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID ?? "699ec6cd003707bc4b94";
 // =======================================================================
 
 import { Client, Databases } from "node-appwrite";

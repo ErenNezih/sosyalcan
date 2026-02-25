@@ -1,6 +1,6 @@
 "use client";
 
-import type { Lead } from "@prisma/client";
+import type { Lead } from "@/types/crm";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -42,7 +42,7 @@ export function LeadList({
               onClick={() => onSelect(lead.id)}
             >
               <td className="px-4 py-3 text-muted-foreground">
-                {format(lead.createdAt, "d MMM yyyy", { locale: tr })}
+                {format(lead.createdAt ?? "", "d MMM yyyy", { locale: tr })}
               </td>
               <td className="px-4 py-3">{lead.name}</td>
               <td className="px-4 py-3">{lead.email}</td>
@@ -54,7 +54,7 @@ export function LeadList({
                 )}
               </td>
               <td className="px-4 py-3">
-                {lead.convertedAt ? (
+                {(lead.convertedAt ?? (lead as { converted_at?: string }).converted_at) ? (
                   <span className="text-primary">Müşteri</span>
                 ) : (
                   <span className="text-muted-foreground">Potansiyel</span>

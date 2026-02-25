@@ -8,6 +8,3 @@ export function isAppwriteConnectionError(e: unknown): boolean {
 
 export const DB_UNREACHABLE_MESSAGE =
   "Servise ulaşılamıyor. Lütfen bağlantınızı kontrol edin veya daha sonra tekrar deneyin.";
-
-/** Eski Prisma kullanımı için alias (geçiş sürecinde import'ları kırmamak için). */
-export const isPrismaConnectionError = isAppwriteConnectionError;

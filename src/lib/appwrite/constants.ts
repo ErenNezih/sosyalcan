@@ -3,7 +3,7 @@
  * Cloud Console'da oluşturduğunuz database/collection id'leri ile güncelleyin.
  */
 
-const DB_ID = process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID ?? "sosyalcan_db";
+const DB_ID = process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID ?? "699ec6cd003707bc4b94";
 const BUCKET_MEDIA_ID = process.env.NEXT_PUBLIC_APPWRITE_BUCKET_MEDIA_ID ?? "media";
 
 export const APPWRITE = {

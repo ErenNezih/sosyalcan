@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Lead } from "@prisma/client";
+import type { Lead } from "@/types/crm";
 import { SlideOver } from "@/components/ui/slide-over";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
@@ -20,7 +20,7 @@ export function LeadDetailDrawer({
 }) {
   const [loading, setLoading] = useState(false);
   async function convert() {
-    if (!lead?.id || lead.convertedAt) return;
+    if (!lead?.id || (lead.convertedAt ?? (lead as { converted_at?: string }).converted_at)) return;
     setLoading(true);
     try {
       const res = await fetch(`/api/leads/${lead.id}/convert`, { method: "POST" });
@@ -53,14 +53,14 @@ export function LeadDetailDrawer({
         </div>
         <div className="sm:col-span-2">
           <p className="text-sm text-muted-foreground">Özel soru yanıtı</p>
-          <p className="mt-1 text-sm">{lead.customQuestionAnswer ?? "-"}</p>
+          <p className="mt-1 text-sm">{lead.customQuestionAnswer ?? (lead as { custom_question_answer?: string }).custom_question_answer ?? "-"}</p>
         </div>
         <div className="sm:col-span-2">
           <p className="text-sm text-muted-foreground">Kayıt tarihi</p>
-          <p className="font-medium">{format(lead.createdAt, "d MMMM yyyy, HH:mm", { locale: tr })}</p>
+          <p className="font-medium">{format(lead.createdAt ?? "", "d MMMM yyyy, HH:mm", { locale: tr })}</p>
         </div>
       </div>
-      {!lead.convertedAt && (
+      {!(lead.convertedAt ?? (lead as { converted_at?: string }).converted_at) && (
         <div className="mt-8 flex justify-end">
           <Button onClick={convert} disabled={loading} className="bg-primary text-primary-foreground">
             {loading ? "İşleniyor..." : "Müşteriye Çevir"}
