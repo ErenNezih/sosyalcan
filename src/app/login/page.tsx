@@ -29,7 +29,9 @@ function LoginForm() {
         err && typeof err === "object" && "message" in err
           ? String((err as { message?: string }).message)
           : "";
-      if (/verif|doğrulan|unverified|confirm/i.test(msg)) {
+      if (/network request failed|failed to fetch|load failed|net::/i.test(msg)) {
+        setError("Appwrite sunucusuna bağlanılamadı. Lütfen internet bağlantınızı ve Appwrite Console → Auth → Settings → Platforms bölümünde bu sitenin adresinin (örn. localhost:3000 veya Vercel URL) eklendiğini kontrol edin.");
+      } else if (/verif|doğrulan|unverified|confirm/i.test(msg)) {
         setError("E-posta adresiniz henüz doğrulanmamış. Appwrite Console → Auth → kullanıcıya tıklayıp «Verify account» ile doğrulayın.");
       } else if (msg) {
         setError(msg);
