@@ -12,9 +12,12 @@ ERP/CRM operasyon paneli — Next.js 14 (App Router), Prisma, NextAuth, karanlı
    - `NEXTAUTH_SECRET` — `openssl rand -base64 32` ile üret
    - `NEXTAUTH_URL` — `http://localhost:3000` (dev)
 3. PostgreSQL: Yerelde çalışan bir PostgreSQL gerekir (örn. `localhost:5432`). Yoksa [Neon](https://neon.tech) veya [Supabase](https://supabase.com) gibi ücretsiz cloud PostgreSQL kullanın; bağlantı dizesini `.env` içindeki `DATABASE_URL` olarak ayarlayın.
-4. Veritabanı: `npx prisma db push`
-5. Seed (Eren & Kerim kullanıcıları): `npm run db:seed`
-6. Geliştirme: `npm run dev`
+4. Appwrite veritabanı: `.env` içinde `APPWRITE_API_KEY` tanımlı olmalı (Proje → API Keys → Create). Sonra:
+   ```bash
+   node setup-appwrite.mjs
+   ```
+   Bu betik tüm koleksiyonları ve attribute'ları (snake_case) oluşturur. Detay için dosya başındaki yorumlara bakın.
+5. Geliştirme: `npm run dev`
 
 ## Özellikler
 
