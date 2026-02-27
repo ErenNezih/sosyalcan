@@ -39,6 +39,22 @@ function LoginForm() {
     }
   }, []);
 
+  async function syncJwtCookie() {
+    try {
+      const res = await account.createJWT();
+      const jwt = typeof res === "object" && res?.jwt ? res.jwt : String(res ?? "");
+      if (!jwt) return;
+      await fetch("/api/auth/jwt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jwt }),
+        credentials: "include",
+      });
+    } catch {
+      // JWT sync optional; session cookie fallback remains
+    }
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
@@ -46,6 +62,7 @@ function LoginForm() {
     setLoading(true);
     try {
       await account.createEmailPasswordSession(email, password);
+      await syncJwtCookie();
       setSessionSyncCookie();
       router.push(callbackUrl);
       router.refresh();
@@ -63,6 +80,7 @@ function LoginForm() {
         }
         try {
           await account.createEmailPasswordSession(email, password);
+          await syncJwtCookie();
           setSessionSyncCookie();
           router.push(callbackUrl);
           router.refresh();

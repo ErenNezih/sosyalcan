@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/api-error-message";
 import { Button } from "@/components/ui/button";
 import { SlideOver } from "@/components/ui/slide-over";
 import { TransactionForm } from "@/components/finance/transaction-form";
@@ -29,7 +30,7 @@ export default function FinancePage() {
       .then(async (r) => {
         const data = await r.json().catch(() => ({}));
         if (!r.ok) {
-          toast.error(typeof data?.error === "string" ? data.error : "Bakiyeler yüklenemedi");
+          toast.error(getApiErrorMessage(r, data, "Bakiyeler yüklenemedi"));
           return [];
         }
         return Array.isArray(data) ? data : [];

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { SESSION_SYNC_COOKIE_NAME } from "@/lib/session-sync-cookie";
+import { SESSION_SYNC_COOKIE_NAME, SC_JWT_COOKIE_NAME } from "@/lib/session-sync-cookie";
 
 /** Appwrite session cookie: a_session_<PROJECT_ID>. 3. parti olduğu için bazen gelmeyebilir. */
 function getSessionCookieName(): string {
@@ -8,12 +8,13 @@ function getSessionCookieName(): string {
   return `a_session_${id}`.toLowerCase();
 }
 
-/** Oturum var: Appwrite çerezi veya birinci taraf sync çerezi (localStorage senkronu). */
+/** Oturum var: Appwrite çerezi, sync çerezi veya JWT cookie (first-party). */
 function hasValidSession(request: NextRequest): boolean {
   const appwriteCookie = getSessionCookieName();
   return (
     request.cookies.has(appwriteCookie) ||
-    request.cookies.has(SESSION_SYNC_COOKIE_NAME)
+    request.cookies.has(SESSION_SYNC_COOKIE_NAME) ||
+    request.cookies.has(SC_JWT_COOKIE_NAME)
   );
 }
 
@@ -37,6 +38,7 @@ export async function middleware(request: NextRequest) {
     res.headers.set("X-Debug-Auth-Cookie-Name", cookieName);
     res.headers.set("X-Debug-Auth-Session-Found", hasSession ? "1" : "0");
     res.headers.set("X-Debug-Auth-Sync-Cookie", request.cookies.has(SESSION_SYNC_COOKIE_NAME) ? "1" : "0");
+    res.headers.set("X-Debug-Auth-JWT-Cookie", request.cookies.has(SC_JWT_COOKIE_NAME) ? "1" : "0");
     res.headers.set("X-Debug-Auth-Project-Id", process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID ?? "missing");
     return res;
   };

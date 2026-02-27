@@ -6,6 +6,7 @@ import { tr } from "date-fns/locale";
 import { AlertCircle, CheckCircle, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/api-error-message";
 
 type Sub = {
   id: string;
@@ -35,7 +36,7 @@ export function SubscriptionDueList({
       .then(async (r) => {
         const data = await r.json().catch(() => ({}));
         if (!r.ok) {
-          toast.error(typeof data?.error === "string" ? data.error : "Vadeler yüklenemedi");
+          toast.error(getApiErrorMessage(r, data, "Vadeler yüklenemedi"));
           return [];
         }
         return Array.isArray(data) ? data : [];
@@ -87,8 +88,8 @@ export function SubscriptionDueList({
     try {
       const res = await fetch(`/api/subscriptions/${id}/collect`, { method: "POST" });
       if (!res.ok) {
-        const e = await res.json().catch(() => ({}));
-        toast.error(e.error ?? "Tahsilat alınamadı");
+        const body = await res.json().catch(() => ({}));
+        toast.error(getApiErrorMessage(res, body, "Tahsilat alınamadı"));
         return;
       }
       toast.success("Ödeme alındı. Vade ertelendi, dağılım uygulandı.");

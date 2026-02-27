@@ -13,6 +13,7 @@ export function SignOutButton() {
     try {
       await account.deleteSession("current");
     } finally {
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
       clearSessionSyncCookie();
       router.push("/");
       router.refresh();

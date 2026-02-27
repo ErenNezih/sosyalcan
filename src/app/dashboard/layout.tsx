@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { getSessionFromCookieStore } from "@/lib/appwrite/server";
 import { SidebarNav } from "@/components/dashboard/sidebar-nav";
+import { JwtRefreshProvider } from "@/components/providers/jwt-refresh-provider";
 import { NotificationRealtime } from "@/components/providers/notification-realtime";
 import { SignOutButton } from "@/components/dashboard/sign-out-button";
 
@@ -42,7 +43,9 @@ export default async function DashboardLayout({
           <SignOutButton />
         </div>
       </aside>
-      <NotificationRealtime />
+      <JwtRefreshProvider>
+        <NotificationRealtime />
+      </JwtRefreshProvider>
       <main className="flex-1 pl-56">
         <header className="sticky top-0 z-20 border-b border-white/10 bg-background/80 backdrop-blur-md px-8 py-4">
           <div className="flex items-center justify-between">

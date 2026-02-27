@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/api-error-message";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -80,8 +81,9 @@ export function FinanceSettings() {
       });
 
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || "Kaydedilemedi");
+        const body = await res.json().catch(() => ({}));
+        toast.error(getApiErrorMessage(res, body, "Kaydedilemedi"));
+        return;
       }
 
       toast.success("Finans ayarları güncellendi.");

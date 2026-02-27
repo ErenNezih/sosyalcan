@@ -6,6 +6,9 @@
  */
 
 export const SESSION_SYNC_COOKIE_NAME = "sosyalcan_session_sync";
+
+/** JWT cookie: API route'larında session doğrulama için (first-party, 3rd-party sorununu çözer). */
+export const SC_JWT_COOKIE_NAME = "SC_JWT";
 const MAX_AGE_DAYS = 30;
 const MAX_AGE_SECONDS = MAX_AGE_DAYS * 24 * 60 * 60;
 

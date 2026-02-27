@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/api-error-message";
 
 export function AddLeadForm({
   onSuccess,
@@ -35,8 +36,8 @@ export function AddLeadForm({
       body: JSON.stringify(data),
     });
     if (!res.ok) {
-      const e = await res.json().catch(() => ({}));
-      toast.error(e?.error?.message ?? "Potansiyel eklenemedi");
+      const body = await res.json().catch(() => ({}));
+      toast.error(getApiErrorMessage(res, body, "Potansiyel eklenemedi"));
       return;
     }
     toast.success("Potansiyel eklendi.");

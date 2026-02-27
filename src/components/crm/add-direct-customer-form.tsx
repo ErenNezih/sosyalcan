@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/api-error-message";
 
 export function AddDirectCustomerForm({
   onSuccess,
@@ -40,8 +41,8 @@ export function AddDirectCustomerForm({
       body: JSON.stringify(data),
     });
     if (!res.ok) {
-      const e = await res.json().catch(() => ({}));
-      toast.error(e?.error?.message ?? "Müşteri eklenemedi");
+      const body = await res.json().catch(() => ({}));
+      toast.error(getApiErrorMessage(res, body, "Müşteri eklenemedi"));
       return;
     }
     toast.success("Aktif müşteri eklendi.");

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/api-error-message";
 
 type Customer = { id: string; name: string | null; email: string };
 type Sub = { id: string; amount: unknown; planName: string | null; packageType: string; customerId: string };
@@ -76,8 +77,8 @@ export function TransactionForm({
       }),
     });
     if (!res.ok) {
-      const e = await res.json().catch(() => ({}));
-      toast.error(e.error ?? "İşlem kaydedilemedi");
+      const body = await res.json().catch(() => ({}));
+      toast.error(getApiErrorMessage(res, body, "İşlem kaydedilemedi"));
       return;
     }
     toast.success(data.isPartialPayment ? "Kısmi ödeme kaydedildi. Kalan vade takvime eklendi." : "İşlem kaydedildi. Dağılım uygulandı.");
