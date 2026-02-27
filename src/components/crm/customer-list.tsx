@@ -3,6 +3,7 @@
 import type { Customer, Lead, Subscription, CustomerWithRelations } from "@/types/crm";
 import { CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 export type { CustomerWithRelations };
 
@@ -59,7 +60,11 @@ export function CustomerList({
                 <td className="px-4 py-3 align-middle">
                   <PulseDot pulse={c.contactPulse} />
                 </td>
-                <td className="px-4 py-3">{c.name}</td>
+                <td className="px-4 py-3">
+                  <Link href={`/dashboard/customers/${c.id}`} className="hover:underline font-medium">
+                    {c.name}
+                  </Link>
+                </td>
                 <td className="px-4 py-3">{c.email}</td>
                 <td className="px-4 py-3">
                   {activeSub ? (

@@ -1,39 +1,88 @@
-# Sosyalcan Komuta Merkezi
+# Sosyalcan Komuta Merkezi v0.2.0
 
-ERP/CRM operasyon paneli — Next.js 14 (App Router), Prisma, NextAuth, karanlık tema, cam efektli slide-over formlar.
+ERP/CRM operasyon paneli — Next.js 14 (App Router), Appwrite Cloud, karanlık tema, cam efektli slide-over formlar.
 
-**Projeyi A'dan Z'ye anlatan detaylı doküman:** [docs/PROJE_ANLATIMI.md](docs/PROJE_ANLATIMI.md) (teknik yapı, veritabanı, API, güvenlik, modüller).
+**Projeyi A'dan Z'ye anlatan detaylı doküman:** [docs/PROJE_KAPSAMLI_ANLATIM.md](docs/PROJE_KAPSAMLI_ANLATIM.md)
 
-## Kurulum
+## Kurulum ve Dağıtım
 
-1. Bağımlılıklar: `npm install`
-2. `.env` oluştur (`.env.example` örnek):
-   - `DATABASE_URL` — PostgreSQL bağlantı dizesi
-   - `NEXTAUTH_SECRET` — `openssl rand -base64 32` ile üret
-   - `NEXTAUTH_URL` — `http://localhost:3000` (dev)
-3. PostgreSQL: Yerelde çalışan bir PostgreSQL gerekir (örn. `localhost:5432`). Yoksa [Neon](https://neon.tech) veya [Supabase](https://supabase.com) gibi ücretsiz cloud PostgreSQL kullanın; bağlantı dizesini `.env` içindeki `DATABASE_URL` olarak ayarlayın.
-4. Appwrite veritabanı: `.env` içinde `APPWRITE_API_KEY` tanımlı olmalı (Proje → API Keys → Create). Sonra:
+### 1. Gereksinimler
+- Node.js 18+
+- Appwrite Cloud hesabı ve projesi
+
+### 2. Yerel Kurulum
+1. Bağımlılıkları yükleyin:
    ```bash
-   node setup-appwrite.mjs
+   npm install
    ```
-   Bu betik tüm koleksiyonları ve attribute'ları (snake_case) oluşturur. Detay için dosya başındaki yorumlara bakın.
-5. Geliştirme: `npm run dev`
+2. `.env` dosyasını oluşturun (örnek `.env.example`):
+   ```env
+   NEXT_PUBLIC_APPWRITE_ENDPOINT=https://cloud.appwrite.io/v1
+   NEXT_PUBLIC_APPWRITE_PROJECT_ID=your_project_id
+   NEXT_PUBLIC_APPWRITE_DATABASE_ID=your_database_id
+   APPWRITE_API_KEY=your_admin_api_key
+   APP_ORIGIN=http://localhost:3000
+   ```
+3. Veritabanı kurulumu ve migrasyon:
+   ```bash
+   npm run migrate
+   ```
+   Bu komut `scripts/migrations` altındaki dosyaları çalıştırarak koleksiyonları ve alanları oluşturur.
+4. Ön kontrol (Preflight Check):
+   ```bash
+   npm run preflight
+   ```
+   Kurulumun doğruluğunu kontrol eder.
+5. Geliştirme sunucusunu başlatın:
+   ```bash
+   npm run dev
+   ```
 
-## Özellikler
+### 3. Vercel Dağıtımı (Deploy)
+1. GitHub reponuzu Vercel'e bağlayın.
+2. Environment Variables ayarlarını yapın:
+   - `NEXT_PUBLIC_APPWRITE_ENDPOINT`
+   - `NEXT_PUBLIC_APPWRITE_PROJECT_ID`
+   - `NEXT_PUBLIC_APPWRITE_DATABASE_ID`
+   - `APPWRITE_API_KEY`
+   - `APP_ORIGIN` (örn: `https://sosyalcan.vercel.app`)
+   - `CRON_SECRET` (Cron job güvenliği için rastgele bir string)
+3. Deploy edin.
+4. **ÖNEMLİ:** Deploy sonrası veritabanı migrasyonunu Production ortamı için çalıştırın. Bunu yerel makinenizden Production `.env` değerlerini kullanarak yapabilirsiniz veya Vercel Console'dan build command içine ekleyebilirsiniz (önerilmez, manuel kontrol daha güvenlidir).
 
-- **Kokpit**: Aylık net ciro, yeni potansiyeller, bugünün randevuları, aktif abonelikler; vitrin etkileşimleri tablosu
-- **Müşteriler & CRM**: Leads (slide-over detay, "Müşteriye Çevir"); Aktif müşteriler (Starter/Pro/Premium paket atama)
-- **Takvim**: Tek takvim (CRM, To-Do, Finans randevuları); slide-over ile ekleme/düzenleme
-- **To-Do**: Kanban (Bekleyen → Kurguda → Revizede → Tamamlandı), sürükle-bırak, atanan ve aciliyet
-- **Finans**: Gelir/Gider; net ciro sabit dağılım (30/30/15/15/10); Donut chart; abonelik ödeme uyarısı
-- **Blog & SEO CMS**: Rich text, kapak, meta başlık/açıklama (160 karakter)
-- **Ayarlar**: Audit log, bildirim tercihleri
+### 4. Cron Job Ayarları
+Vercel Cron kullanarak periyodik görevleri çalıştırın. `vercel.json` dosyası kök dizinde olmalıdır (yoksa oluşturun):
+```json
+{
+  "crons": [
+    {
+      "path": "/api/jobs/run-rules",
+      "schedule": "0 * * * *"
+    }
+  ]
+}
+```
+Vercel projesinde Cron Jobs sekmesinden `CRON_SECRET` header'ını ayarlayın (Authorization: Bearer <SECRET>).
 
-## Güvenlik
+## Özellikler (v0.2.0)
 
-- Kayıt sayfası yok; sadece veritabanında `SUPER_ADMIN` rolüne sahip kullanıcılar giriş yapabilir.
-- `NODE_ENV=development` ve localhost’ta giriş bypass (DX); production’da NextAuth middleware tüm `/dashboard` rotalarını korur.
+- **Kokpit**: Özet metrikler ve uyarılar.
+- **Müşteriler & CRM**: Lead yönetimi, Müşteriye çevirme (Idempotent), İletişim geçmişi.
+- **Projeler & İşler**: Proje takibi, Teslim kalemleri (Deliverables), Onay süreçleri.
+- **Finans**: Gelir/Gider yönetimi, Otomatik dağılım (Bucket sistemi), Ayarlanabilir oranlar.
+- **Takvim & To-Do**: Entegre takvim ve Kanban panosu.
+- **Güvenlik**: RBAC (Rol bazlı erişim), CSRF koruması, Güvenli API route'ları.
+- **Bildirimler**: Appwrite Realtime ile anlık bildirimler.
 
-## Teknolojiler
+## Mimari
 
-Next.js 14, Tailwind CSS, Framer Motion, Prisma, PostgreSQL, NextAuth.js, Zustand, Lucide, Radix UI, Zod, React Hook Form, Sonner, Tiptap, @dnd-kit, Recharts.
+- **Frontend**: Next.js 14 App Router, Tailwind CSS, Radix UI, Framer Motion.
+- **Backend**: Next.js API Routes.
+- **Veritabanı**: Appwrite Databases.
+- **Auth**: Appwrite Auth (Email/Password).
+- **Storage**: Appwrite Storage.
+
+## Geliştirme Kuralları
+
+- **Lint & Typecheck**: Commit öncesi `npm run lint` ve `npm run typecheck` çalıştırın.
+- **Migration**: Veritabanı şeması değişiklikleri için `scripts/migrations` altına yeni bir `.mjs` dosyası ekleyin.

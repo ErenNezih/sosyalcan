@@ -22,6 +22,11 @@ export const APPWRITE = {
     media: "media",
     auditLogs: "audit_logs",
     notifications: "notifications",
+    projects: "projects",
+    deliverables: "deliverables",
+    contactLogs: "contact_logs",
+    userProfiles: "user_profiles",
+    financeSettings: "finance_settings",
   },
 } as const;
 

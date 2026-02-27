@@ -19,6 +19,8 @@ type AuditLog = {
   user: { id: string; name: string | null; email: string };
 };
 
+import { FinanceSettings } from "@/components/settings/finance-settings";
+
 export default function SettingsPage() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
 
@@ -42,11 +44,15 @@ export default function SettingsPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        <Tabs defaultValue="audit">
+        <Tabs defaultValue="finance">
           <TabsList>
+            <TabsTrigger value="finance">Finans</TabsTrigger>
             <TabsTrigger value="audit">Operasyonel Hafıza (Audit Log)</TabsTrigger>
             <TabsTrigger value="notifications">Bildirimler</TabsTrigger>
           </TabsList>
+          <TabsContent value="finance">
+            <FinanceSettings />
+          </TabsContent>
           <TabsContent value="audit">
             <Card>
               <CardHeader>

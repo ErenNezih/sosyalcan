@@ -8,7 +8,8 @@ import { cn } from "@/lib/utils";
 
 interface SlideOverProps {
   open: boolean;
-  onClose: () => void;
+  onClose?: () => void;
+  onOpenChange?: (open: boolean) => void;
   title?: string;
   children: React.ReactNode;
   className?: string;
@@ -18,14 +19,20 @@ interface SlideOverProps {
 export function SlideOver({
   open,
   onClose,
+  onOpenChange,
   title,
   children,
   className,
   showClose = true,
 }: SlideOverProps) {
+  const handleClose = React.useCallback(() => {
+    if (onOpenChange) onOpenChange(false);
+    if (onClose) onClose();
+  }, [onClose, onOpenChange]);
+
   React.useEffect(() => {
     const onEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") handleClose();
     };
     if (open) {
       document.addEventListener("keydown", onEscape);
@@ -35,7 +42,7 @@ export function SlideOver({
       document.removeEventListener("keydown", onEscape);
       document.body.style.overflow = "";
     };
-  }, [open, onClose]);
+  }, [open, handleClose]);
 
   return (
     <AnimatePresence>
@@ -47,7 +54,7 @@ export function SlideOver({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
-            onClick={onClose}
+            onClick={handleClose}
             aria-hidden
           />
           <motion.div
@@ -75,7 +82,7 @@ export function SlideOver({
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={onClose}
+                    onClick={handleClose}
                     className="ml-auto"
                     aria-label="Kapat"
                   >
