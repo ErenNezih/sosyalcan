@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionFromRequest, getAppwriteAdmin, APPWRITE } from "@/lib/appwrite/server";
-import { ID, InputFile } from "node-appwrite";
+import { ID } from "node-appwrite";
+import { InputFile } from "node-appwrite/file";
 
 export async function POST(request: Request) {
   const session = await getSessionFromRequest(request);
