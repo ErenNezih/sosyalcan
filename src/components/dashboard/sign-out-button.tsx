@@ -1,8 +1,6 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { account } from "@/lib/appwrite/client";
-import { clearSessionSyncCookie } from "@/lib/session-sync-cookie";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 
@@ -10,14 +8,9 @@ export function SignOutButton() {
   const router = useRouter();
 
   async function handleSignOut() {
-    try {
-      await account.deleteSession("current");
-    } finally {
-      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
-      clearSessionSyncCookie();
-      router.push("/");
-      router.refresh();
-    }
+    await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    router.push("/");
+    router.refresh();
   }
 
   return (

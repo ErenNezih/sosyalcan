@@ -1,7 +1,7 @@
 /**
  * Payload sanitization helpers for API routes.
  * Converts empty strings to undefined, trims strings, and removes null values
- * so Appwrite receives clean data.
+ * so the API receives clean data.
  */
 
 export function sanitizeOptionalFields<T extends Record<string, unknown>>(

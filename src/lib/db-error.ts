@@ -1,7 +1,7 @@
 /**
- * Appwrite / ağ hata kontrolü.
+ * Veritabanı / ağ hata kontrolü (Prisma, API).
  */
-export function isAppwriteConnectionError(e: unknown): boolean {
+export function isDbConnectionError(e: unknown): boolean {
   const msg = e instanceof Error ? e.message : String(e);
   return /ECONNREFUSED|ETIMEDOUT|ENOTFOUND|network|fetch failed|502|503/i.test(msg);
 }

@@ -1,53 +1,73 @@
 import { NextResponse } from "next/server";
-import { getSessionFromRequest, getAppwriteAdmin, APPWRITE } from "@/lib/appwrite/server";
-import { mapDocumentList, Query } from "@/lib/appwrite/helpers";
-import { isAppwriteConnectionError, DB_UNREACHABLE_MESSAGE } from "@/lib/db-error";
+import { z } from "zod";
+import { prisma } from "@/lib/db";
+import { requireAuth, apiError } from "@/lib/auth/require-auth";
 
-const dbId = APPWRITE.databaseId;
-const collCustomers = APPWRITE.collections.customers;
-const collAppointments = APPWRITE.collections.appointments;
+const createSchema = z.object({
+  name: z.string().min(1, "İsim zorunlu"),
+  email: z.string().optional(),
+  phone: z.string().optional(),
+  company: z.string().optional(),
+  sector: z.string().optional(),
+  notes: z.string().optional(),
+});
 
-const CONTACT_YELLOW_DAYS = 20;
-const CONTACT_RED_DAYS = 35;
+const updateSchema = createSchema.partial();
 
 export async function GET(request: Request) {
-  const session = await getSessionFromRequest(request);
-  if (!session?.$id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAuth();
+  if (!auth.ok) return auth.response;
 
   try {
-    const archived = new URL(request.url).searchParams.get("archived");
-    const customerQueries = [Query.orderDesc("$createdAt")];
-    if (archived === "true") customerQueries.push(Query.equal("is_deleted", true));
-    else if (archived !== "all") {
-      customerQueries.push(Query.notEqual("is_deleted", true));
-      customerQueries.push(Query.isNull("deleted_at")); // legacy compat
+    const url = new URL(request.url);
+    const archived = url.searchParams.get("archived");
+    const withContactStatus = url.searchParams.get("withContactStatus") === "1";
+
+    const where =
+      archived === "true"
+        ? { archivedAt: { not: null } }
+        : archived === "all"
+          ? {}
+          : { archivedAt: null };
+
+    const customers = await prisma.customer.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!withContactStatus) {
+      return NextResponse.json(
+        customers.map((c) => ({
+          ...c,
+          archivedAt: c.archivedAt?.toISOString() ?? null,
+          createdAt: c.createdAt.toISOString(),
+          updatedAt: c.updatedAt.toISOString(),
+        }))
+      );
     }
 
-    const { databases } = getAppwriteAdmin();
-    const customersRes = await databases.listDocuments(dbId, collCustomers, customerQueries);
-    const customers = mapDocumentList(customersRes);
+    const lastAppointments = await prisma.appointment.findMany({
+      where: { customerId: { in: customers.map((c) => c.id) }, archivedAt: null },
+      select: { customerId: true, startAt: true },
+      orderBy: { startAt: "desc" },
+    });
 
-    const withContactStatus = new URL(request.url).searchParams.get("withContactStatus") === "1";
-    if (!withContactStatus) return NextResponse.json(customers);
-
-    const appointmentsRes = await databases.listDocuments(dbId, collAppointments, [
-      Query.equal("related_type", "Customer"),
-    ]);
-    const lastByCustomer = new Map<string, string>();
-    for (const a of appointmentsRes.documents) {
-      const relId = (a as unknown as { related_id?: string }).related_id;
-      const start = (a as unknown as { start?: string }).start;
-      if (relId && start && !lastByCustomer.has(relId)) lastByCustomer.set(relId, start);
+    const lastByCustomer = new Map<string, Date>();
+    for (const a of lastAppointments) {
+      if (a.customerId && !lastByCustomer.has(a.customerId)) {
+        lastByCustomer.set(a.customerId, a.startAt);
+      }
     }
 
     const now = new Date();
     now.setHours(0, 0, 0, 0);
+    const CONTACT_YELLOW_DAYS = 20;
+    const CONTACT_RED_DAYS = 35;
 
     const withStatus = customers.map((c) => {
       const last = lastByCustomer.get(c.id);
-      const lastDate = last ? new Date(last) : null;
-      const daysSince = lastDate
-        ? Math.floor((now.getTime() - new Date(lastDate).setHours(0, 0, 0, 0)) / (24 * 60 * 60 * 1000))
+      const daysSince = last
+        ? Math.floor((now.getTime() - new Date(last).setHours(0, 0, 0, 0)) / (24 * 60 * 60 * 1000))
         : null;
       let pulse: "green" | "yellow" | "red" = "green";
       if (daysSince != null) {
@@ -56,17 +76,59 @@ export async function GET(request: Request) {
       }
       return {
         ...c,
-        lastContactAt: last ?? null,
-        daysSinceContact: daysSince ?? null,
+        archivedAt: c.archivedAt?.toISOString() ?? null,
+        createdAt: c.createdAt.toISOString(),
+        updatedAt: c.updatedAt.toISOString(),
+        lastContactAt: last?.toISOString() ?? null,
+        daysSinceContact: daysSince,
         contactPulse: pulse,
       };
     });
 
     return NextResponse.json(withStatus);
   } catch (e) {
-    if (isAppwriteConnectionError(e)) {
-      return NextResponse.json({ error: DB_UNREACHABLE_MESSAGE }, { status: 503 });
+    console.error("[api/customers GET]", e);
+    return NextResponse.json(apiError("SERVER_ERROR", "Müşteriler yüklenemedi"), { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  const auth = await requireAuth();
+  if (!auth.ok) return auth.response;
+
+  try {
+    const body = await request.json();
+    const parsed = createSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        apiError("VALIDATION_ERROR", "Geçersiz veri", parsed.error.flatten()),
+        { status: 400 }
+      );
     }
-    throw e;
+
+    const data = parsed.data;
+    const customer = await prisma.customer.create({
+      data: {
+        name: data.name,
+        email: data.email ?? null,
+        phone: data.phone ?? null,
+        company: data.company ?? null,
+        sector: data.sector ?? null,
+        notes: data.notes ?? null,
+      },
+    });
+
+    return NextResponse.json({
+      ok: true,
+      data: {
+        ...customer,
+        archivedAt: customer.archivedAt?.toISOString() ?? null,
+        createdAt: customer.createdAt.toISOString(),
+        updatedAt: customer.updatedAt.toISOString(),
+      },
+    });
+  } catch (e) {
+    console.error("[api/customers POST]", e);
+    return NextResponse.json(apiError("SERVER_ERROR", "Müşteri oluşturulamadı"), { status: 500 });
   }
 }

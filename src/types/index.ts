@@ -1,7 +1,5 @@
-import { Models } from "node-appwrite";
-
 /**
- * Merkezi tip tanımları — Appwrite API yanıtları ve UI propları.
+ * Merkezi tip tanımları — Prisma/API yanıtları ve UI propları.
  */
 export type {
   Lead,
@@ -13,7 +11,3 @@ export type {
   FinanceSettings,
   CustomerWithRelations,
 } from "./crm";
-
-export type AppwriteDocument = Models.Document & {
-  [key: string]: any;
-};

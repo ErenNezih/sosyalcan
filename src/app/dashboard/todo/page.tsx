@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ type Task = {
 };
 
 export default function TodoPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const dayParam = searchParams.get("day");
   const [day, setDay] = useState(dayParam && /^\d{4}-\d{2}-\d{2}$/.test(dayParam) ? dayParam : todayString());
@@ -103,7 +104,7 @@ export default function TodoPage() {
           taskId={editingId}
           task={editingId ? tasks.find((t) => t.id === editingId) ?? null : null}
           defaultDueDate={day}
-          onSuccess={() => { load(); setFormOpen(false); setEditingId(null); }}
+          onSuccess={() => { load(); setFormOpen(false); setEditingId(null); router.refresh(); }}
           onCancel={() => { setFormOpen(false); setEditingId(null); }}
         />
       </SlideOver>

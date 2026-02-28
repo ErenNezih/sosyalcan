@@ -1,16 +1,21 @@
 import { NextResponse } from "next/server";
-import { getSessionFromRequest, getAppwriteAdmin } from "@/lib/appwrite/server";
+import { prisma } from "@/lib/db";
+import { requireAuth, apiError } from "@/lib/auth/require-auth";
 
-export async function GET(request: Request) {
-  const session = await getSessionFromRequest(request);
-  if (!session?.$id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+/**
+ * GET /api/users - List users for assignee dropdown (id, name, email)
+ */
+export async function GET() {
+  const auth = await requireAuth();
+  if (!auth.ok) return auth.response;
 
-  const { users } = getAppwriteAdmin();
-  const list = await users.list();
-  const result = list.users.map((u) => ({
-    id: u.$id,
-    name: u.name ?? null,
-    email: u.email,
-  }));
-  return NextResponse.json(result);
+  try {
+    const users = await prisma.user.findMany({
+      select: { id: true, name: true, email: true },
+    });
+    return NextResponse.json(users);
+  } catch (e) {
+    console.error("[api/users]", e);
+    return NextResponse.json(apiError("SERVER_ERROR", "Kullanıcılar yüklenemedi"), { status: 500 });
+  }
 }

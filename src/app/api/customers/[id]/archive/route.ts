@@ -1,48 +1,27 @@
 import { NextResponse } from "next/server";
-import { getAppwriteAdmin } from "@/lib/appwrite/server";
-import { APPWRITE } from "@/lib/appwrite/constants";
-import { auditLog } from "@/lib/audit";
-import { isAppwriteConnectionError, DB_UNREACHABLE_MESSAGE } from "@/lib/db-error";
-import { requireRole } from "@/lib/auth/rbac";
-import { ARCHIVE_UPDATE } from "@/lib/archive";
+import { prisma } from "@/lib/db";
+import { requireAuth, apiError } from "@/lib/auth/require-auth";
 
 export async function PATCH(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { authorized, user } = await requireRole(request, ["admin", "staff"]);
-  if (!authorized || !user) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const auth = await requireAuth();
+  if (!auth.ok) return auth.response;
 
   const { id } = await params;
-  const { databases } = getAppwriteAdmin();
 
   try {
-    const now = ARCHIVE_UPDATE.archived_at();
-    await databases.updateDocument(
-      APPWRITE.databaseId,
-      APPWRITE.collections.customers,
-      id,
-      {
-        archived_at: now,
-        archived_by: ARCHIVE_UPDATE.archived_by(user.$id),
-        is_deleted: ARCHIVE_UPDATE.is_deleted,
-        deleted_at: now, // legacy compat
-      }
-    );
-
-    await auditLog({
-      userId: user.$id,
-      action: "customer.archived",
-      entityType: "Customer",
-      entityId: id,
-      payload: {},
+    await prisma.customer.update({
+      where: { id },
+      data: { archivedAt: new Date() },
     });
-
-    return NextResponse.json({ success: true });
-  } catch (e) {
-    if (isAppwriteConnectionError(e)) {
-      return NextResponse.json({ error: DB_UNREACHABLE_MESSAGE }, { status: 503 });
+    return NextResponse.json({ ok: true });
+  } catch (e: unknown) {
+    if (e && typeof e === "object" && "code" in e && e.code === "P2025") {
+      return NextResponse.json(apiError("NOT_FOUND", "Müşteri bulunamadı"), { status: 404 });
     }
-    return NextResponse.json({ error: "Müşteri arşivlenemedi" }, { status: 500 });
+    console.error("[api/customers archive]", e);
+    return NextResponse.json(apiError("SERVER_ERROR", "Arşivlenemedi"), { status: 500 });
   }
 }

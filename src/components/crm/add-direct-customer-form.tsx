@@ -35,17 +35,25 @@ export function AddDirectCustomerForm({
   const temperature = watch("temperature");
 
   async function onSubmit(data: DirectCustomerFormValues) {
-    const res = await fetch("/api/customers/direct", {
+    const res = await fetch("/api/customers", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        name: data.name,
+        email: data.email || undefined,
+        phone: data.phone || undefined,
+        company: data.company || undefined,
+        sector: data.sector || undefined,
+        notes: data.notes || undefined,
+      }),
     });
     if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      toast.error(getApiErrorMessage(res, body, "Müşteri eklenemedi"));
+      const json = await res.json().catch(() => ({}));
+      const msg = json?.message ?? json?.error ?? "Müşteri eklenemedi";
+      toast.error(typeof msg === "string" ? msg : "Müşteri eklenemedi");
       return;
     }
-    toast.success("Aktif müşteri eklendi.");
+    toast.success("Müşteri eklendi.");
     onSuccess();
   }
 

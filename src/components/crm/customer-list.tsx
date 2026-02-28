@@ -29,14 +29,16 @@ export function CustomerList({
   showArchived = false,
 }: {
   customers: CustomerWithRelations[];
-  onAssignPackage: (customerId: string) => void;
+  onAssignPackage?: (customerId: string) => void;
   onUpdated: () => void;
   showArchived?: boolean;
 }) {
+  const hasSubs = customers.some((c) => (c.subscriptions ?? []).length > 0);
+
   if (customers.length === 0) {
     return (
       <div className="glass-card rounded-lg p-8 text-center text-muted-foreground">
-        Henüz müşteri yok. Leads sekmesinden potansiyeli &quot;Müşteriye Çevir&quot; ile ekleyin veya &quot;Aktif Müşteri Ekle&quot; kullanın.
+        Henüz müşteri yok. &quot;Müşteri Ekle&quot; ile ekleyin.
       </div>
     );
   }
@@ -49,8 +51,8 @@ export function CustomerList({
             <th className="px-4 py-3 font-medium w-8"></th>
             <th className="px-4 py-3 font-medium">Ad</th>
             <th className="px-4 py-3 font-medium">E-posta</th>
-            <th className="px-4 py-3 font-medium">Paket</th>
-            <th className="px-4 py-3 font-medium">İşlem</th>
+            {hasSubs && <th className="px-4 py-3 font-medium">Paket</th>}
+            {onAssignPackage && <th className="px-4 py-3 font-medium">İşlem</th>}
             <th className="px-4 py-3 font-medium w-10"></th>
           </tr>
         </thead>
@@ -70,31 +72,35 @@ export function CustomerList({
                   </Link>
                 </td>
                 <td className="px-4 py-3">{c.email}</td>
-                <td className="px-4 py-3">
-                  {activeSub ? (
-                    <span className="text-primary">
-                      {pkgType ?? "-"} – {Number(activeSub.amount).toLocaleString("tr-TR")} TL
-                    </span>
-                  ) : (
-                    <span className="text-muted-foreground">Paket atanmadı</span>
-                  )}
-                </td>
-                <td className="px-4 py-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1"
-                    onClick={() => onAssignPackage(c.id)}
-                  >
-                    <CreditCard className="h-3 w-3" />
-                    Paket Ata
-                  </Button>
-                </td>
+                {hasSubs && (
+                  <td className="px-4 py-3">
+                    {activeSub ? (
+                      <span className="text-primary">
+                        {pkgType ?? "-"} – {Number(activeSub.amount).toLocaleString("tr-TR")} TL
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </td>
+                )}
+                {onAssignPackage && (
+                  <td className="px-4 py-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1"
+                      onClick={() => onAssignPackage(c.id)}
+                    >
+                      <CreditCard className="h-3 w-3" />
+                      Paket Ata
+                    </Button>
+                  </td>
+                )}
                 <td className="px-4 py-3">
                   <ArchiveRestoreDropdown
                     entityType="customer"
                     entityId={c.id}
-                    isArchived={!!(c as { is_deleted?: boolean }).is_deleted}
+                    isArchived={!!(c as { archivedAt?: string | null }).archivedAt}
                     onSuccess={onUpdated}
                   />
                 </td>

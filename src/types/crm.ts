@@ -1,5 +1,5 @@
 /**
- * CRM tipleri — Appwrite API yanıtlarına uyumlu (snake_case + camelCase).
+ * CRM tipleri — API yanıtlarına uyumlu (snake_case + camelCase).
  */
 
 export interface Lead {

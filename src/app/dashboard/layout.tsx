@@ -1,10 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
-import { getSessionFromCookieStore } from "@/lib/appwrite/server";
+import { getCurrentUser } from "@/lib/auth/get-user";
 import { SidebarNav } from "@/components/dashboard/sidebar-nav";
-import { JwtRefreshProvider } from "@/components/providers/jwt-refresh-provider";
-import { NotificationRealtime } from "@/components/providers/notification-realtime";
 import { SignOutButton } from "@/components/dashboard/sign-out-button";
 
 export default async function DashboardLayout({
@@ -12,14 +9,17 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  let session: Awaited<ReturnType<typeof getSessionFromCookieStore>> = null;
+  let user: Awaited<ReturnType<typeof getCurrentUser>> = null;
   try {
-    const cookieStore = await cookies();
-    session = await getSessionFromCookieStore((name) => cookieStore.get(name) ?? undefined);
+    user = await getCurrentUser();
   } catch (error) {
     if (process.env.NODE_ENV === "development") {
-      console.error("DASHBOARD_SSR_ERROR layout getSession:", error);
+      console.error("DASHBOARD_SSR_ERROR layout getCurrentUser:", error);
     }
+    redirect("/login?callbackUrl=/dashboard");
+  }
+
+  if (!user) {
     redirect("/login?callbackUrl=/dashboard");
   }
 
@@ -34,25 +34,18 @@ export default async function DashboardLayout({
         </div>
         <SidebarNav />
         <div className="border-t border-white/10 p-4">
-          <p className="text-sm text-muted-foreground">
-            {session?.name ?? "Geliştirici"}
-          </p>
-          <p className="text-xs text-muted-foreground/80">
-            {session?.email ?? "—"}
-          </p>
+          <p className="text-sm text-muted-foreground">{user.name ?? "Kullanıcı"}</p>
+          <p className="text-xs text-muted-foreground/80">{user.email ?? "—"}</p>
           <SignOutButton />
         </div>
       </aside>
-      <JwtRefreshProvider>
-        <NotificationRealtime />
-      </JwtRefreshProvider>
       <main className="flex-1 pl-56">
         <header className="sticky top-0 z-20 border-b border-white/10 bg-background/80 backdrop-blur-md px-8 py-4">
           <div className="flex items-center justify-between">
             <div />
             <div className="flex items-center gap-4">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 text-sm font-medium text-primary">
-                {(session?.name ?? "?")[0]}
+                {(user.name ?? "?")[0]}
               </div>
             </div>
           </div>

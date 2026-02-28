@@ -1,156 +1,96 @@
 import { NextResponse } from "next/server";
-import { getAppwriteAdmin, getSessionFromRequest } from "@/lib/appwrite/server";
-import { APPWRITE } from "@/lib/appwrite/constants";
-import { auditLog } from "@/lib/audit";
-import { isAppwriteConnectionError, DB_UNREACHABLE_MESSAGE } from "@/lib/db-error";
 import { z } from "zod";
-import { requireRole } from "@/lib/auth/rbac";
+import { prisma } from "@/lib/db";
+import { requireAuth, apiError } from "@/lib/auth/require-auth";
 
-const projectUpdateSchema = z.object({
-  name: z.string().optional(),
+const updateSchema = z.object({
+  name: z.string().min(1).optional(),
   customerId: z.string().optional(),
-  status: z.enum(["active", "on_hold", "done", "archived"]).optional(),
+  status: z.enum(["active", "on_hold", "done"]).optional(),
+  priority: z.enum(["low", "medium", "high"]).optional(),
   startDate: z.string().optional(),
   dueDate: z.string().optional(),
   budget: z.number().int().nonnegative().optional(),
-  priority: z.enum(["high", "medium", "low"]).optional(),
   notes: z.string().optional(),
 });
 
+function toResponse(p: { id: string; name: string; customerId: string | null; status: string; priority: string; startAt: Date | null; dueAt: Date | null; budgetKurus: number; notes: string | null; archivedAt: Date | null; createdAt: Date; updatedAt: Date }) {
+  return {
+    id: p.id,
+    name: p.name,
+    customerId: p.customerId ?? undefined,
+    status: p.status,
+    priority: p.priority,
+    startDate: p.startAt?.toISOString() ?? null,
+    dueDate: p.dueAt?.toISOString() ?? null,
+    budget: p.budgetKurus,
+    notes: p.notes ?? null,
+    archivedAt: p.archivedAt?.toISOString() ?? null,
+    createdAt: p.createdAt.toISOString(),
+    updatedAt: p.updatedAt.toISOString(),
+  };
+}
+
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getSessionFromRequest(request);
-  if (!session?.$id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAuth();
+  if (!auth.ok) return auth.response;
 
   const { id } = await params;
-  const { databases } = getAppwriteAdmin();
+  const project = await prisma.project.findUnique({
+    where: { id },
+    include: { customer: true },
+  });
 
-  try {
-    const doc = await databases.getDocument(
-      APPWRITE.databaseId,
-      APPWRITE.collections.projects,
-      id
-    ) as any;
-
-    return NextResponse.json({
-      id: doc.$id,
-      ...doc,
-      customerId: doc.customer_id,
-      startDate: doc.start_date,
-      dueDate: doc.due_date,
-      createdAt: doc.created_at,
-      updatedAt: doc.updated_at,
-      createdBy: doc.created_by,
-      archivedAt: doc.archived_at,
-    });
-  } catch (e) {
-    if (isAppwriteConnectionError(e)) {
-      return NextResponse.json({ error: DB_UNREACHABLE_MESSAGE }, { status: 503 });
-    }
-    return NextResponse.json({ error: "Project not found" }, { status: 404 });
+  if (!project) {
+    return NextResponse.json(apiError("NOT_FOUND", "Proje bulunamadı"), { status: 404 });
   }
+
+  return NextResponse.json(toResponse(project));
 }
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { authorized, user } = await requireRole(request, ["admin", "staff"]);
-  if (!authorized || !user) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const auth = await requireAuth();
+  if (!auth.ok) return auth.response;
 
   const { id } = await params;
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Geçersiz istek gövdesi" }, { status: 400 });
-  }
-
-  const result = projectUpdateSchema.safeParse(body);
-  if (!result.success) {
-    return NextResponse.json({ error: "Validation error", details: result.error.format() }, { status: 400 });
-  }
-
-  const { databases } = getAppwriteAdmin();
 
   try {
-    const updatedDoc = await databases.updateDocument(
-      APPWRITE.databaseId,
-      APPWRITE.collections.projects,
-      id,
-      {
-        ...result.data,
-        customer_id: result.data.customerId,
-        start_date: result.data.startDate,
-        due_date: result.data.dueDate,
-        updated_at: new Date().toISOString(),
-      }
-    ) as any;
-
-    await auditLog({
-      userId: user.$id,
-      action: "project.update",
-      entityType: "Project",
-      entityId: id,
-      payload: result.data,
-    });
-
-    return NextResponse.json({
-      id: updatedDoc.$id,
-      ...updatedDoc,
-      customerId: updatedDoc.customer_id,
-      startDate: updatedDoc.start_date,
-      dueDate: updatedDoc.due_date,
-      createdAt: updatedDoc.created_at,
-      updatedAt: updatedDoc.updated_at,
-      createdBy: updatedDoc.created_by,
-    });
-  } catch (e) {
-    if (isAppwriteConnectionError(e)) {
-      return NextResponse.json({ error: DB_UNREACHABLE_MESSAGE }, { status: 503 });
+    const body = await request.json();
+    const parsed = updateSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        apiError("VALIDATION_ERROR", "Geçersiz veri", parsed.error.flatten()),
+        { status: 400 }
+      );
     }
-    return NextResponse.json({ error: "Failed to update project" }, { status: 500 });
-  }
-}
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { authorized, user } = await requireRole(request, ["admin"]);
-  if (!authorized || !user) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const data: Record<string, unknown> = {};
+    if (parsed.data.name != null) data.name = parsed.data.name;
+    if (parsed.data.customerId != null) data.customerId = parsed.data.customerId || null;
+    if (parsed.data.status != null) data.status = parsed.data.status;
+    if (parsed.data.priority != null) data.priority = parsed.data.priority;
+    if (parsed.data.startDate != null) data.startAt = parsed.data.startDate ? new Date(parsed.data.startDate) : null;
+    if (parsed.data.dueDate != null) data.dueAt = parsed.data.dueDate ? new Date(parsed.data.dueDate) : null;
+    if (parsed.data.budget != null) data.budgetKurus = parsed.data.budget;
+    if (parsed.data.notes != null) data.notes = parsed.data.notes;
 
-  const { id } = await params;
-  const { databases } = getAppwriteAdmin();
-
-  try {
-    // Soft delete (archive)
-    await databases.updateDocument(
-      APPWRITE.databaseId,
-      APPWRITE.collections.projects,
-      id,
-      {
-        status: "archived",
-        archived_at: new Date().toISOString(),
-        is_deleted: true,
-      }
-    );
-
-    await auditLog({
-      userId: user.$id,
-      action: "project.archive",
-      entityType: "Project",
-      entityId: id,
-      payload: { status: "archived" },
+    const project = await prisma.project.update({
+      where: { id },
+      data,
     });
 
-    return NextResponse.json({ success: true });
-  } catch (e) {
-    if (isAppwriteConnectionError(e)) {
-      return NextResponse.json({ error: DB_UNREACHABLE_MESSAGE }, { status: 503 });
+    return NextResponse.json(toResponse(project));
+  } catch (e: unknown) {
+    if (e && typeof e === "object" && "code" in e && e.code === "P2025") {
+      return NextResponse.json(apiError("NOT_FOUND", "Proje bulunamadı"), { status: 404 });
     }
-    return NextResponse.json({ error: "Failed to archive project" }, { status: 500 });
+    console.error("[api/projects PATCH]", e);
+    return NextResponse.json(apiError("SERVER_ERROR", "Proje güncellenemedi"), { status: 500 });
   }
 }

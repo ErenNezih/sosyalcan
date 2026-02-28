@@ -1,67 +1,36 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { SESSION_SYNC_COOKIE_NAME, SC_JWT_COOKIE_NAME } from "@/lib/session-sync-cookie";
 
-/** Appwrite session cookie: a_session_<PROJECT_ID>. 3. parti olduğu için bazen gelmeyebilir. */
-function getSessionCookieName(): string {
-  const id = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID ?? "";
-  return `a_session_${id}`.toLowerCase();
-}
+const IRON_SESSION_COOKIE = "sosyalcan_session";
 
-/** Oturum var: Appwrite çerezi, sync çerezi veya JWT cookie (first-party). */
+/** Geçerli oturum: iron-session cookie. */
 function hasValidSession(request: NextRequest): boolean {
-  const appwriteCookie = getSessionCookieName();
-  return (
-    request.cookies.has(appwriteCookie) ||
-    request.cookies.has(SESSION_SYNC_COOKIE_NAME) ||
-    request.cookies.has(SC_JWT_COOKIE_NAME)
-  );
+  if (!request.cookies.has(IRON_SESSION_COOKIE)) return false;
+  const val = request.cookies.get(IRON_SESSION_COOKIE)?.value;
+  return !!(val && val.length > 0);
 }
-
-/** Debug: ?debug=auth ile istek atıldığında yanıt header'larına session bilgisi eklenir (F12 → Network). */
-const DEBUG_AUTH_PARAM = "debug";
-const DEBUG_AUTH_VALUE = "auth";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const cookieName = getSessionCookieName();
   const hasSession = hasValidSession(request);
 
-  // Debug: Vercel/yerel log için (Vercel'de Runtime Logs'ta görünür)
-  // console.log("[auth]", { pathname, cookieName, hasSession, envProjectId: process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID ? "set" : "missing" });
-
-  const isDebugAuth =
-    request.nextUrl.searchParams.get(DEBUG_AUTH_PARAM) === DEBUG_AUTH_VALUE;
-
-  const addDebugHeaders = (res: NextResponse) => {
-    if (!isDebugAuth) return res;
-    res.headers.set("X-Debug-Auth-Cookie-Name", cookieName);
-    res.headers.set("X-Debug-Auth-Session-Found", hasSession ? "1" : "0");
-    res.headers.set("X-Debug-Auth-Sync-Cookie", request.cookies.has(SESSION_SYNC_COOKIE_NAME) ? "1" : "0");
-    res.headers.set("X-Debug-Auth-JWT-Cookie", request.cookies.has(SC_JWT_COOKIE_NAME) ? "1" : "0");
-    res.headers.set("X-Debug-Auth-Project-Id", process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID ?? "missing");
-    return res;
-  };
-
-  // Vitrin ve login herkese açık
   if (pathname === "/" || pathname === "/login") {
     if (pathname === "/login" && hasSession) {
-      return addDebugHeaders(NextResponse.redirect(new URL("/dashboard", request.url)));
+      return NextResponse.redirect(new URL("/dashboard", request.url));
     }
-    return addDebugHeaders(NextResponse.next());
+    return NextResponse.next();
   }
 
-  // /dashboard ve altı: oturum zorunlu — yoksa login'e yönlendir (Demo Gör akışı)
   if (pathname.startsWith("/dashboard")) {
     if (!hasSession) {
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("callbackUrl", pathname);
-      return addDebugHeaders(NextResponse.redirect(loginUrl));
+      return NextResponse.redirect(loginUrl);
     }
-    return addDebugHeaders(NextResponse.next());
+    return NextResponse.next();
   }
 
-  return addDebugHeaders(NextResponse.next());
+  return NextResponse.next();
 }
 
 export const config = {

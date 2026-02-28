@@ -8,9 +8,7 @@ import {
   Calendar,
   CheckSquare,
   Wallet,
-  FileText,
   Settings,
-  CalendarCheck,
   Briefcase,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -19,11 +17,9 @@ const nav = [
   { href: "/dashboard", label: "Kokpit", icon: LayoutDashboard },
   { href: "/dashboard/projects", label: "Projeler", icon: Briefcase },
   { href: "/dashboard/customers", label: "Müşteriler", icon: Users },
-  { href: "/dashboard/temas", label: "Temas", icon: CalendarCheck },
   { href: "/dashboard/calendar", label: "Takvim", icon: Calendar },
   { href: "/dashboard/todo", label: "To-Do", icon: CheckSquare },
   { href: "/dashboard/finance", label: "Finans", icon: Wallet },
-  { href: "/dashboard/blog", label: "Blog & SEO", icon: FileText },
   { href: "/dashboard/settings", label: "Ayarlar", icon: Settings },
 ];
 

@@ -1,73 +1,113 @@
 import { NextResponse } from "next/server";
-import { ID } from "node-appwrite";
-import { getSessionFromRequest, getAppwriteAdmin, APPWRITE } from "@/lib/appwrite/server";
-import { mapDocument, mapDocumentList, Query } from "@/lib/appwrite/helpers";
 import { z } from "zod";
+import { prisma } from "@/lib/db";
+import { requireAuth, apiError } from "@/lib/auth/require-auth";
 
-const appointmentSchema = z.object({
-  title: z.string().min(1, "Başlık zorunludur"),
+const createSchema = z.object({
+  title: z.string().min(1, "Başlık zorunlu"),
   description: z.string().optional(),
-  start: z.string().min(1, "Başlangıç zorunludur"),
-  end: z.string().min(1, "Bitiş zorunludur"),
-  type: z.string().min(1, "Tip zorunludur"),
+  start: z.string().min(1, "Başlangıç zorunlu"),
+  end: z.string().min(1, "Bitiş zorunlu"),
+  type: z.enum(["crm", "todo", "finance"]).default("crm"),
   relatedId: z.string().optional(),
   relatedType: z.string().optional(),
 });
 
-const dbId = APPWRITE.databaseId;
-const coll = APPWRITE.collections.appointments;
+function toResponse(a: {
+  id: string;
+  title: string;
+  type: string;
+  startAt: Date;
+  endAt: Date;
+  customerId: string | null;
+  notes: string | null;
+  meetLink: string | null;
+  archivedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}) {
+  return {
+    id: a.id,
+    title: a.title,
+    type: a.type,
+    start: a.startAt.toISOString(),
+    end: a.endAt.toISOString(),
+    startAt: a.startAt.toISOString(),
+    endAt: a.endAt.toISOString(),
+    relatedId: a.customerId,
+    relatedType: a.customerId ? "Customer" : null,
+    description: a.notes,
+    notes: a.notes,
+    meetLink: a.meetLink,
+    archivedAt: a.archivedAt?.toISOString() ?? null,
+    createdAt: a.createdAt.toISOString(),
+    updatedAt: a.updatedAt.toISOString(),
+  };
+}
 
 export async function GET(request: Request) {
-  const session = await getSessionFromRequest(request);
-  if (!session?.$id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAuth();
+  if (!auth.ok) return auth.response;
 
-  const { searchParams } = new URL(request.url);
-  const from = searchParams.get("from");
-  const to = searchParams.get("to");
-  const archived = searchParams.get("archived");
+  const url = new URL(request.url);
+  const from = url.searchParams.get("from");
+  const to = url.searchParams.get("to");
+  const archived = url.searchParams.get("archived");
+
   if (!from || !to) {
-    return NextResponse.json({ error: "from and to required" }, { status: 400 });
+    return NextResponse.json(apiError("VALIDATION_ERROR", "from ve to zorunlu"), { status: 400 });
   }
 
-  const archiveFilter = archived === "true"
-    ? [Query.equal("is_deleted", true)]
-    : archived === "all"
-      ? []
-      : [Query.notEqual("is_deleted", true)];
+  try {
+    const where: { startAt?: { gte: Date; lte: Date }; archivedAt?: { not: null } | null } = {
+      startAt: { gte: new Date(from), lte: new Date(to) },
+    };
+    if (archived === "true") where.archivedAt = { not: null };
+    else if (archived !== "all") where.archivedAt = null;
 
-  const { databases } = getAppwriteAdmin();
-  const res = await databases.listDocuments(dbId, coll, [
-    ...archiveFilter,
-    Query.greaterThanEqual("start", from),
-    Query.lessThanEqual("start", to),
-    Query.orderAsc("start"),
-  ]);
-  const list = mapDocumentList(res);
-  return NextResponse.json(list);
+    const appointments = await prisma.appointment.findMany({
+      where,
+      orderBy: { startAt: "asc" },
+    });
+
+    return NextResponse.json(appointments.map(toResponse));
+  } catch (e) {
+    console.error("[api/appointments GET]", e);
+    return NextResponse.json(apiError("SERVER_ERROR", "Randevular yüklenemedi"), { status: 500 });
+  }
 }
 
 export async function POST(request: Request) {
-  const session = await getSessionFromRequest(request);
-  if (!session?.$id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAuth();
+  if (!auth.ok) return auth.response;
 
-  const body = await request.json();
-  const parsed = appointmentSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: "Validation error", details: parsed.error.format() }, { status: 400 });
+  try {
+    const body = await request.json();
+    const parsed = createSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        apiError("VALIDATION_ERROR", "Geçersiz veri", parsed.error.flatten()),
+        { status: 400 }
+      );
+    }
+
+    const data = parsed.data;
+    const customerId = data.relatedType === "Customer" && data.relatedId ? data.relatedId : null;
+
+    const appointment = await prisma.appointment.create({
+      data: {
+        title: data.title,
+        type: data.type,
+        startAt: new Date(data.start),
+        endAt: new Date(data.end),
+        customerId,
+        notes: data.description ?? null,
+      },
+    });
+
+    return NextResponse.json(toResponse(appointment));
+  } catch (e) {
+    console.error("[api/appointments POST]", e);
+    return NextResponse.json(apiError("SERVER_ERROR", "Randevu oluşturulamadı"), { status: 500 });
   }
-
-  const { title, description, start, end, type, relatedId, relatedType } = parsed.data;
-
-  const { databases } = getAppwriteAdmin();
-  const doc = await databases.createDocument(dbId, coll, ID.unique(), {
-    title,
-    description: description ?? "",
-    start,
-    end,
-    type,
-    related_id: relatedId ?? "",
-    related_type: relatedType ?? "",
-    user_id: session.$id,
-  });
-  return NextResponse.json(mapDocument(doc));
 }

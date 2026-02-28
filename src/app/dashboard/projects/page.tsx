@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Project } from "@/types";
 import { ProjectList } from "@/components/projects/project-list";
 import { ProjectForm } from "@/components/projects/project-form";
@@ -9,6 +10,7 @@ import { Plus } from "lucide-react";
 import { toast } from "sonner";
 
 export default function ProjectsPage() {
+  const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -69,7 +71,7 @@ export default function ProjectsPage() {
       <ProjectForm 
         open={isFormOpen} 
         onOpenChange={setIsFormOpen} 
-        onSuccess={fetchProjects} 
+        onSuccess={() => { fetchProjects(); router.refresh(); }} 
       />
     </div>
   );

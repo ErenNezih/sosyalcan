@@ -1,64 +1,50 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
-import { getApiErrorMessage } from "@/lib/api-error-message";
 import { Button } from "@/components/ui/button";
 import { SlideOver } from "@/components/ui/slide-over";
-import { TransactionForm } from "@/components/finance/transaction-form";
-import { DonutChart } from "@/components/finance/donut-chart";
-import { BalanceCards } from "@/components/finance/balance-cards";
-import { SubscriptionDueList } from "@/components/finance/subscription-due-list";
+import { TransactionFormSimple } from "@/components/finance/transaction-form-simple";
 
-type Balance = {
+type Transaction = {
   id: string;
-  bucket: string;
-  balance: string;
-  userId: string | null;
-  user: { id: string; name: string | null } | null;
+  type: string;
+  amount: number;
+  dateAt: string;
+  customerId: string | null;
+  notes: string | null;
 };
 
 export default function FinancePage() {
-  const [balances, setBalances] = useState<Balance[]>([]);
+  const router = useRouter();
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [formOpen, setFormOpen] = useState(false);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [showArchived, setShowArchived] = useState(false);
 
-  const loadBalances = () =>
-    fetch("/api/balances")
-      .then(async (r) => {
-        const data = await r.json().catch(() => ({}));
-        if (!r.ok) {
-          toast.error(getApiErrorMessage(r, data, "Bakiyeler yüklenemedi"));
-          return [];
-        }
-        return Array.isArray(data) ? data : [];
-      })
-      .then(setBalances);
+  const loadTransactions = () =>
+    fetch(`/api/transactions?archived=${showArchived ? "true" : "false"}`)
+      .then((r) => (r.ok ? r.json() : { documents: [] }))
+      .then((data) => setTransactions(data.documents ?? []));
 
   useEffect(() => {
-    loadBalances();
-  }, []);
+    loadTransactions();
+  }, [showArchived]);
 
-  const onTransactionSuccess = () => {
-    loadBalances();
+  const onSuccess = () => {
+    loadTransactions();
     setFormOpen(false);
-    setRefreshTrigger((t) => t + 1);
+    router.refresh();
   };
-
-  const safeBalances = Array.isArray(balances) ? balances : [];
-  const donutData = safeBalances.map((b) => ({
-    name: b.bucket === "EREN" ? "Kullanıcı 1" : b.bucket === "KERIM" ? "Kullanıcı 2" : b.bucket === "GIDER" ? "Gider" : b.bucket === "BIRIKIM" ? "Birikim" : "Acil Durum",
-    value: Number(b.balance),
-  }));
 
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Finans & Ön Muhasebe</h1>
-          <p className="text-muted-foreground">Gelir / Gider ve sabit dağılım (30-30-15-15-10)</p>
+          <h1 className="text-2xl font-semibold">Finans</h1>
+          <p className="text-muted-foreground">Gelir ve gider kayıtları</p>
         </div>
         <Button onClick={() => setFormOpen(true)} className="gap-2">
           <Plus className="h-4 w-4" />
@@ -66,26 +52,60 @@ export default function FinancePage() {
         </Button>
       </div>
 
-      <SubscriptionDueList onCollected={loadBalances} refreshTrigger={refreshTrigger} />
+      <div className="space-y-3">
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={showArchived}
+            onChange={(e) => setShowArchived(e.target.checked)}
+            className="rounded text-primary"
+          />
+          Arşivdekileri göster
+        </label>
+      </div>
 
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="grid gap-6 lg:grid-cols-2"
+        className="overflow-hidden rounded-lg border border-white/10"
       >
-        <div className="glass-card p-6">
-          <h2 className="mb-4 font-semibold">Bakiye Dağılımı</h2>
-          <DonutChart data={donutData} />
-        </div>
-        <div>
-          <h2 className="mb-4 font-semibold">Bakiyeler</h2>
-          <BalanceCards balances={safeBalances} />
-        </div>
+        {transactions.length === 0 ? (
+          <div className="p-8 text-center text-muted-foreground">Henüz işlem yok.</div>
+        ) : (
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-white/10 bg-white/5">
+                <th className="px-4 py-3 font-medium">Tarih</th>
+                <th className="px-4 py-3 font-medium">Tür</th>
+                <th className="px-4 py-3 font-medium">Tutar</th>
+                <th className="px-4 py-3 font-medium">Not</th>
+              </tr>
+            </thead>
+            <tbody>
+              {transactions.map((t) => (
+                <tr key={t.id} className="border-b border-white/5 hover:bg-white/5">
+                  <td className="px-4 py-3">
+                    {new Date(t.dateAt).toLocaleDateString("tr-TR")}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={t.type === "income" ? "text-emerald-400" : "text-red-400"}>
+                      {t.type === "income" ? "Gelir" : "Gider"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 font-medium">
+                    {new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" }).format(t.amount)}
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">{t.notes ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </motion.div>
 
-      <SlideOver open={formOpen} onClose={() => setFormOpen(false)} title="Gelir / Gider">
-        <TransactionForm
-          onSuccess={onTransactionSuccess}
+      <SlideOver open={formOpen} onClose={() => setFormOpen(false)} title="İşlem Ekle">
+        <TransactionFormSimple
+          onSuccess={onSuccess}
           onCancel={() => setFormOpen(false)}
         />
       </SlideOver>

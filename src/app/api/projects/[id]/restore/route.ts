@@ -1,45 +1,27 @@
 import { NextResponse } from "next/server";
-import { getAppwriteAdmin } from "@/lib/appwrite/server";
-import { APPWRITE } from "@/lib/appwrite/constants";
-import { auditLog } from "@/lib/audit";
-import { isAppwriteConnectionError, DB_UNREACHABLE_MESSAGE } from "@/lib/db-error";
-import { requireRole } from "@/lib/auth/rbac";
-import { RESTORE_UPDATE } from "@/lib/archive";
+import { prisma } from "@/lib/db";
+import { requireAuth, apiError } from "@/lib/auth/require-auth";
 
 export async function PATCH(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { authorized, user } = await requireRole(request, ["admin", "staff"]);
-  if (!authorized || !user) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const auth = await requireAuth();
+  if (!auth.ok) return auth.response;
 
   const { id } = await params;
-  const { databases } = getAppwriteAdmin();
 
   try {
-    await databases.updateDocument(
-      APPWRITE.databaseId,
-      APPWRITE.collections.projects,
-      id,
-      {
-        ...RESTORE_UPDATE,
-        status: "active",
-      }
-    );
-
-    await auditLog({
-      userId: user.$id,
-      action: "project.restored",
-      entityType: "Project",
-      entityId: id,
-      payload: { status: "active" },
+    await prisma.project.update({
+      where: { id },
+      data: { archivedAt: null },
     });
-
-    return NextResponse.json({ success: true });
-  } catch (e) {
-    if (isAppwriteConnectionError(e)) {
-      return NextResponse.json({ error: DB_UNREACHABLE_MESSAGE }, { status: 503 });
+    return NextResponse.json({ ok: true });
+  } catch (e: unknown) {
+    if (e && typeof e === "object" && "code" in e && e.code === "P2025") {
+      return NextResponse.json(apiError("NOT_FOUND", "Proje bulunamadı"), { status: 404 });
     }
-    return NextResponse.json({ error: "Proje geri yüklenemedi" }, { status: 500 });
+    console.error("[api/projects restore]", e);
+    return NextResponse.json(apiError("SERVER_ERROR", "Geri yüklenemedi"), { status: 500 });
   }
 }

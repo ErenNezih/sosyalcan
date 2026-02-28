@@ -1,99 +1,108 @@
 import { NextResponse } from "next/server";
-import { getSessionFromRequest, getAppwriteAdmin, APPWRITE } from "@/lib/appwrite/server";
-import { mapDocument } from "@/lib/appwrite/helpers";
-import { auditLog } from "@/lib/audit";
+import { z } from "zod";
+import { prisma } from "@/lib/db";
+import { requireAuth, apiError } from "@/lib/auth/require-auth";
 
-const dbId = APPWRITE.databaseId;
-const coll = APPWRITE.collections.tasks;
+const updateSchema = z.object({
+  title: z.string().min(1).optional(),
+  description: z.string().optional(),
+  status: z.enum(["BEKLEYEN", "KURGUDA", "REVIZEDE", "TAMAMLANDI"]).optional(),
+  assigneeId: z.string().optional().nullable(),
+  urgency: z.enum(["low", "medium", "high"]).optional(),
+  dueDate: z.string().optional().nullable(),
+  order: z.number().int().optional(),
+});
+
+function toResponse(t: {
+  id: string;
+  title: string;
+  description: string | null;
+  status: string;
+  priority: string;
+  dueAt: Date | null;
+  order: number;
+  assigneeId: string | null;
+  archivedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  assignee?: { id: string; name: string | null; email: string } | null;
+}) {
+  return {
+    id: t.id,
+    title: t.title,
+    description: t.description,
+    status: t.status,
+    urgency: t.priority,
+    dueDate: t.dueAt?.toISOString() ?? null,
+    order: t.order,
+    assigneeId: t.assigneeId,
+    archivedAt: t.archivedAt?.toISOString() ?? null,
+    createdAt: t.createdAt.toISOString(),
+    updatedAt: t.updatedAt.toISOString(),
+    assignee: t.assignee ?? null,
+  };
+}
 
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getSessionFromRequest(request);
-  if (!session?.$id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAuth();
+  if (!auth.ok) return auth.response;
 
   const { id } = await params;
-  const { databases, users } = getAppwriteAdmin();
-  try {
-    const doc = await databases.getDocument(dbId, coll, id);
-    const mapped = mapDocument(doc);
-    const assigneeId = doc.assignee_id as string | undefined;
-    let assignee = null;
-    if (assigneeId) {
-      try {
-        const u = await users.get(assigneeId);
-        assignee = { id: u.$id, name: u.name ?? null, email: u.email };
-      } catch {
-        // user may be deleted
-      }
-    }
-    return NextResponse.json({
-      ...mapped,
-      dueDate: mapped.due_date ?? null,
-      assigneeId: mapped.assignee_id ?? null,
-      assignee,
-    });
-  } catch {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const task = await prisma.task.findUnique({
+    where: { id },
+    include: { assignee: { select: { id: true, name: true, email: true } } },
+  });
+
+  if (!task) {
+    return NextResponse.json(apiError("NOT_FOUND", "Görev bulunamadı"), { status: 404 });
   }
+
+  return NextResponse.json(toResponse(task));
 }
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getSessionFromRequest(request);
-  if (!session?.$id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAuth();
+  if (!auth.ok) return auth.response;
 
   const { id } = await params;
-  const body = await request.json() as Record<string, unknown>;
 
-  const { databases } = getAppwriteAdmin();
-  let prev: { status?: string; title?: string };
   try {
-    prev = await databases.getDocument(dbId, coll, id) as unknown as { status?: string; title?: string };
-  } catch {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
+    const body = await request.json();
+    const parsed = updateSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        apiError("VALIDATION_ERROR", "Geçersiz veri", parsed.error.flatten()),
+        { status: 400 }
+      );
+    }
 
-  const data: Record<string, string | number> = {};
-  if (body.title != null) data.title = String(body.title);
-  if (body.description != null) data.description = String(body.description);
-  if (body.status != null) data.status = String(body.status);
-  if (body.assigneeId != null) data.assignee_id = String(body.assigneeId);
-  if (body.urgency != null) data.urgency = String(body.urgency);
-  if (body.dueDate != null) data.due_date = body.dueDate ? String(body.dueDate) : "";
-  if (body.order != null) data.order = Number(body.order);
+    const data: Record<string, unknown> = {};
+    if (parsed.data.title != null) data.title = parsed.data.title;
+    if (parsed.data.description != null) data.description = parsed.data.description;
+    if (parsed.data.status != null) data.status = parsed.data.status;
+    if (parsed.data.assigneeId !== undefined) data.assigneeId = parsed.data.assigneeId || null;
+    if (parsed.data.urgency != null) data.priority = parsed.data.urgency;
+    if (parsed.data.dueDate !== undefined) data.dueAt = parsed.data.dueDate ? new Date(parsed.data.dueDate) : null;
+    if (parsed.data.order != null) data.order = parsed.data.order;
 
-  const doc = await databases.updateDocument(dbId, coll, id, data);
-
-  if (body.status != null && body.status !== prev.status) {
-    await auditLog({
-      userId: session.$id,
-      action: "task.status_changed",
-      entityType: "Task",
-      entityId: id,
-      payload: { from: prev.status, to: body.status, title: (doc as unknown as { title?: string }).title },
+    const task = await prisma.task.update({
+      where: { id },
+      data,
+      include: { assignee: { select: { id: true, name: true, email: true } } },
     });
-  }
 
-  return NextResponse.json(mapDocument(doc));
-}
-
-export async function DELETE(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const session = await getSessionFromRequest(_request);
-  if (!session?.$id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const { id } = await params;
-  const { databases } = getAppwriteAdmin();
-  try {
-    await databases.deleteDocument(dbId, coll, id);
-    return NextResponse.json({ ok: true });
-  } catch {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json(toResponse(task));
+  } catch (e: unknown) {
+    if (e && typeof e === "object" && "code" in e && e.code === "P2025") {
+      return NextResponse.json(apiError("NOT_FOUND", "Görev bulunamadı"), { status: 404 });
+    }
+    console.error("[api/tasks PATCH]", e);
+    return NextResponse.json(apiError("SERVER_ERROR", "Görev güncellenemedi"), { status: 500 });
   }
 }

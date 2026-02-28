@@ -8,14 +8,17 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "preflight": "node scripts/preflight.mjs",
-    "migrate": "node scripts/migrate-appwrite.mjs"
+    "postinstall": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:seed": "tsx prisma/seed.ts",
+    "preflight": "node scripts/preflight.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",
     "@dnd-kit/sortable": "^8.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@hookform/resolvers": "^3.3.4",
+    "@prisma/client": "^5.22.0",
     "@radix-ui/react-avatar": "^1.0.4",
     "@radix-ui/react-checkbox": "^1.3.3",
     "@radix-ui/react-dialog": "^1.0.5",
@@ -28,15 +31,16 @@
     "@tiptap/extension-placeholder": "^2.1.13",
     "@tiptap/react": "^2.1.13",
     "@tiptap/starter-kit": "^2.1.13",
-    "appwrite": "^14.0.1",
+    "bcrypt": "^5.1.1",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
     "date-fns": "^3.6.0",
     "framer-motion": "^11.0.8",
+    "iron-session": "^8.0.4",
     "jspdf": "^4.2.0",
     "lucide-react": "^0.344.0",
     "next": "14.2.5",
-    "node-appwrite": "^15.0.1",
+    "prisma": "^5.22.0",
     "react": "^18.2.0",
     "react-day-picker": "^8.10.0",
     "react-dom": "^18.2.0",
@@ -49,6 +53,7 @@
     "zustand": "^4.5.2"
   },
   "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
     "@types/node": "^20.11.24",
     "@types/react": "^18.2.61",
     "@types/react-dom": "^18.2.19",
@@ -60,5 +65,8 @@
     "tailwindcss": "^3.4.1",
     "tsx": "^4.7.1",
     "typescript": "^5.3.3"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   }
 }

@@ -17,7 +17,6 @@ function generateMeetLink(): string {
 }
 
 type Customer = { id: string; name: string; email: string };
-type Lead = { id: string; name: string; email: string };
 
 export function AppointmentForm({
   appointmentId,
@@ -40,7 +39,6 @@ export function AppointmentForm({
   const [meetToggle, setMeetToggle] = useState(false);
   const [loading, setLoading] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [leads, setLeads] = useState<Lead[]>([]);
 
   useEffect(() => {
     const d = defaultDate;
@@ -71,12 +69,6 @@ export function AppointmentForm({
     fetch("/api/customers")
       .then((r) => (r.ok ? r.json() : []))
       .then((data) => setCustomers(Array.isArray(data) ? data : []));
-    fetch("/api/leads")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((data) => {
-        const list = Array.isArray(data) ? data : [];
-        setLeads(list.filter((l: { customer?: unknown }) => !l.customer));
-      });
   }, []);
 
   useEffect(() => {
@@ -145,11 +137,11 @@ export function AppointmentForm({
         <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1 bg-white/5" required />
       </div>
       <div className="sm:col-span-2">
-        <Label htmlFor="related">Kiminle / İlgili (Müşteri veya Potansiyel)</Label>
+        <Label htmlFor="related">Müşteri (opsiyonel)</Label>
         <select
           id="related"
           className="mt-1 flex h-10 w-full rounded-md border border-input bg-white/5 px-3 py-2 text-sm"
-          value={relatedType && relatedId ? `${relatedType}:${relatedId}` : ""}
+          value={relatedType === "Customer" && relatedId ? relatedId : ""}
           onChange={(e) => {
             const v = e.target.value;
             if (!v) {
@@ -157,22 +149,14 @@ export function AppointmentForm({
               setRelatedType("");
               return;
             }
-            const [t, id] = v.split(":");
-            setRelatedType(t as "Customer" | "Lead");
-            setRelatedId(id);
+            setRelatedType("Customer");
+            setRelatedId(v);
           }}
         >
           <option value="">— Seçin (opsiyonel)</option>
-          <optgroup label="Müşteriler">
-            {customers.map((x) => (
-              <option key={`C:${x.id}`} value={`Customer:${x.id}`}>{x.name} ({x.email})</option>
-            ))}
-          </optgroup>
-          <optgroup label="Potansiyeller">
-            {leads.map((x) => (
-              <option key={`L:${x.id}`} value={`Lead:${x.id}`}>{x.name} ({x.email})</option>
-            ))}
-          </optgroup>
+          {customers.map((x) => (
+            <option key={x.id} value={x.id}>{x.name} ({x.email})</option>
+          ))}
         </select>
       </div>
       <div>

@@ -1,66 +1,107 @@
 import { NextResponse } from "next/server";
-import { getSessionFromRequest, getAppwriteAdmin, APPWRITE } from "@/lib/appwrite/server";
-import { mapDocument, Query } from "@/lib/appwrite/helpers";
+import { z } from "zod";
+import { prisma } from "@/lib/db";
+import { requireAuth, apiError } from "@/lib/auth/require-auth";
 
-const dbId = APPWRITE.databaseId;
-const coll = APPWRITE.collections.appointments;
+const updateSchema = z.object({
+  title: z.string().min(1).optional(),
+  description: z.string().optional(),
+  start: z.string().optional(),
+  end: z.string().optional(),
+  type: z.string().optional(),
+  relatedId: z.string().optional().nullable(),
+  relatedType: z.string().optional().nullable(),
+});
+
+function toResponse(a: {
+  id: string;
+  title: string;
+  type: string;
+  startAt: Date;
+  endAt: Date;
+  customerId: string | null;
+  notes: string | null;
+  meetLink: string | null;
+  archivedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}) {
+  return {
+    id: a.id,
+    title: a.title,
+    type: a.type,
+    start: a.startAt.toISOString(),
+    end: a.endAt.toISOString(),
+    startAt: a.startAt.toISOString(),
+    endAt: a.endAt.toISOString(),
+    relatedId: a.customerId,
+    relatedType: a.customerId ? "Customer" : null,
+    description: a.notes,
+    notes: a.notes,
+    meetLink: a.meetLink,
+    archivedAt: a.archivedAt?.toISOString() ?? null,
+    createdAt: a.createdAt.toISOString(),
+    updatedAt: a.updatedAt.toISOString(),
+  };
+}
 
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getSessionFromRequest(request);
-  if (!session?.$id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAuth();
+  if (!auth.ok) return auth.response;
 
   const { id } = await params;
-  const { databases } = getAppwriteAdmin();
-  try {
-    const doc = await databases.getDocument(dbId, coll, id);
-    return NextResponse.json(mapDocument(doc));
-  } catch {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const appointment = await prisma.appointment.findUnique({ where: { id } });
+
+  if (!appointment) {
+    return NextResponse.json(apiError("NOT_FOUND", "Randevu bulunamadı"), { status: 404 });
   }
+
+  return NextResponse.json(toResponse(appointment));
 }
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getSessionFromRequest(request);
-  if (!session?.$id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAuth();
+  if (!auth.ok) return auth.response;
 
   const { id } = await params;
-  const body = await request.json() as Record<string, unknown>;
-  const data: Record<string, string> = {};
-  if (body.title != null) data.title = String(body.title);
-  if (body.description != null) data.description = String(body.description);
-  if (body.start != null) data.start = String(body.start);
-  if (body.end != null) data.end = String(body.end);
-  if (body.relatedId != null) data.related_id = String(body.relatedId);
-  if (body.relatedType != null) data.related_type = String(body.relatedType);
 
-  const { databases } = getAppwriteAdmin();
   try {
-    const doc = await databases.updateDocument(dbId, coll, id, data);
-    return NextResponse.json(mapDocument(doc));
-  } catch {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-}
+    const body = await request.json();
+    const parsed = updateSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        apiError("VALIDATION_ERROR", "Geçersiz veri", parsed.error.flatten()),
+        { status: 400 }
+      );
+    }
 
-export async function DELETE(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const session = await getSessionFromRequest(_request);
-  if (!session?.$id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const data: Record<string, unknown> = {};
+    if (parsed.data.title != null) data.title = parsed.data.title;
+    if (parsed.data.description != null) data.notes = parsed.data.description;
+    if (parsed.data.start != null) data.startAt = new Date(parsed.data.start);
+    if (parsed.data.end != null) data.endAt = new Date(parsed.data.end);
+    if (parsed.data.type != null) data.type = parsed.data.type;
+    if (parsed.data.relatedId !== undefined || parsed.data.relatedType !== undefined) {
+      data.customerId = parsed.data.relatedType === "Customer" && parsed.data.relatedId ? parsed.data.relatedId : null;
+    }
 
-  const { id } = await params;
-  const { databases } = getAppwriteAdmin();
-  try {
-    await databases.deleteDocument(dbId, coll, id);
-    return NextResponse.json({ ok: true });
-  } catch {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const appointment = await prisma.appointment.update({
+      where: { id },
+      data,
+    });
+
+    return NextResponse.json(toResponse(appointment));
+  } catch (e: unknown) {
+    if (e && typeof e === "object" && "code" in e && e.code === "P2025") {
+      return NextResponse.json(apiError("NOT_FOUND", "Randevu bulunamadı"), { status: 404 });
+    }
+    console.error("[api/appointments PATCH]", e);
+    return NextResponse.json(apiError("SERVER_ERROR", "Randevu güncellenemedi"), { status: 500 });
   }
 }

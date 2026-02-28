@@ -1,143 +1,97 @@
 import { NextResponse } from "next/server";
-import { ID, Query } from "node-appwrite";
-import { getAppwriteAdmin, getSessionFromRequest } from "@/lib/appwrite/server";
-import { APPWRITE } from "@/lib/appwrite/constants";
-import { auditLog } from "@/lib/audit";
-import { isAppwriteConnectionError, DB_UNREACHABLE_MESSAGE } from "@/lib/db-error";
 import { z } from "zod";
-import { requireRole } from "@/lib/auth/rbac";
+import { prisma } from "@/lib/db";
+import { requireAuth, apiError } from "@/lib/auth/require-auth";
 
-const projectSchema = z.object({
-  name: z.string().min(1, "Proje adı zorunludur"),
+const createSchema = z.object({
+  name: z.string().min(1, "Proje adı zorunlu"),
   customerId: z.string().optional(),
-  status: z.enum(["active", "on_hold", "done", "archived"]).default("active"),
+  status: z.enum(["active", "on_hold", "done"]).default("active"),
+  priority: z.enum(["low", "medium", "high"]).default("medium"),
   startDate: z.string().optional(),
   dueDate: z.string().optional(),
-  budget: z.number().int().nonnegative().optional(), // Kurus
-  priority: z.enum(["high", "medium", "low"]).default("medium"),
+  budget: z.number().int().nonnegative().optional(),
   notes: z.string().optional(),
 });
 
+function toResponse(p: { id: string; name: string; customerId: string | null; status: string; priority: string; startAt: Date | null; dueAt: Date | null; budgetKurus: number; notes: string | null; archivedAt: Date | null; createdAt: Date; updatedAt: Date }) {
+  return {
+    id: p.id,
+    name: p.name,
+    customerId: p.customerId ?? undefined,
+    status: p.status,
+    priority: p.priority,
+    startDate: p.startAt?.toISOString() ?? null,
+    dueDate: p.dueAt?.toISOString() ?? null,
+    budget: p.budgetKurus,
+    notes: p.notes ?? null,
+    archivedAt: p.archivedAt?.toISOString() ?? null,
+    createdAt: p.createdAt.toISOString(),
+    updatedAt: p.updatedAt.toISOString(),
+  };
+}
+
 export async function GET(request: Request) {
-  const session = await getSessionFromRequest(request);
-  if (!session?.$id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAuth();
+  if (!auth.ok) return auth.response;
 
   try {
-    const { searchParams } = new URL(request.url);
-    const customerId = searchParams.get("customerId");
-    const status = searchParams.get("status");
-    const archived = searchParams.get("archived");
-    const limit = parseInt(searchParams.get("limit") || "50");
+    const url = new URL(request.url);
+    const archived = url.searchParams.get("archived");
+    const customerId = url.searchParams.get("customerId");
 
-    const { databases } = getAppwriteAdmin();
-    const queries = [Query.orderDesc("created_at"), Query.limit(limit)];
-    
-    if (archived === "true") queries.push(Query.equal("is_deleted", true));
-    else if (archived !== "all") queries.push(Query.notEqual("is_deleted", true));
-    if (customerId) queries.push(Query.equal("customer_id", customerId));
-    if (status) queries.push(Query.equal("status", status));
-    
-    // Filter out deleted/archived unless explicitly asked?
-    // Let's filter out deleted (is_deleted=true) by default if we implement soft delete.
-    // The migration didn't add is_deleted to projects, but added archived_at.
-    // Let's filter out archived if status != archived?
-    // Or just return everything matching query.
+    const where: { archivedAt?: { not: null } | null; customerId?: string } = {};
+    if (archived === "true") where.archivedAt = { not: null };
+    else if (archived !== "all") where.archivedAt = null;
+    if (customerId) where.customerId = customerId;
 
-    const res = await databases.listDocuments(
-      APPWRITE.databaseId, 
-      APPWRITE.collections.projects, 
-      queries
-    );
-    
+    const projects = await prisma.project.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    });
+
     return NextResponse.json({
-      total: res.total,
-      documents: res.documents.map((doc: any) => ({
-        id: doc.$id,
-        ...doc,
-        // Map snake_case to camelCase for frontend convenience if needed
-        customerId: doc.customer_id,
-        startDate: doc.start_date,
-        dueDate: doc.due_date,
-        createdAt: doc.created_at,
-        updatedAt: doc.updated_at,
-        createdBy: doc.created_by,
-        archivedAt: doc.archived_at,
-      })),
+      total: projects.length,
+      documents: projects.map(toResponse),
     });
   } catch (e) {
-    if (isAppwriteConnectionError(e)) {
-      return NextResponse.json({ error: DB_UNREACHABLE_MESSAGE }, { status: 503 });
-    }
-    throw e;
+    console.error("[api/projects GET]", e);
+    return NextResponse.json(apiError("SERVER_ERROR", "Projeler yüklenemedi"), { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
-  const { authorized, user } = await requireRole(request, ["admin", "staff"]);
-  if (!authorized || !user) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Geçersiz istek gövdesi" }, { status: 400 });
-  }
-
-  const result = projectSchema.safeParse(body);
-  if (!result.success) {
-    return NextResponse.json({ error: "Validation error", details: result.error.format() }, { status: 400 });
-  }
-
-  const { name, customerId, status, startDate, dueDate, budget, priority, notes } = result.data;
-
-  const { databases } = getAppwriteAdmin();
+  const auth = await requireAuth();
+  if (!auth.ok) return auth.response;
 
   try {
-    const doc = await databases.createDocument(
-      APPWRITE.databaseId,
-      APPWRITE.collections.projects,
-      ID.unique(),
-      {
-        name,
-        customer_id: customerId || "",
-        status,
-        start_date: startDate || "",
-        due_date: dueDate || "",
-        budget: budget ?? 0,
-        priority,
-        notes: notes || "",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        created_by: user.$id,
-        archived_at: "",
-        is_deleted: false,
-      }
-    ) as any;
-
-    await auditLog({
-      userId: user.$id,
-      action: "project.create",
-      entityType: "Project",
-      entityId: doc.$id,
-      payload: { name, customerId, status },
-    });
-
-    return NextResponse.json({
-      id: doc.$id,
-      ...doc,
-      customerId: doc.customer_id,
-      startDate: doc.start_date,
-      dueDate: doc.due_date,
-      createdAt: doc.created_at,
-      updatedAt: doc.updated_at,
-      createdBy: doc.created_by,
-    });
-
-  } catch (e) {
-    if (isAppwriteConnectionError(e)) {
-      return NextResponse.json({ error: DB_UNREACHABLE_MESSAGE }, { status: 503 });
+    const body = await request.json();
+    const parsed = createSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        apiError("VALIDATION_ERROR", "Geçersiz veri", parsed.error.flatten()),
+        { status: 400 }
+      );
     }
-    const message = e instanceof Error ? e.message : "Proje oluşturulamadı";
-    return NextResponse.json({ error: message }, { status: 500 });
+
+    const data = parsed.data;
+    const project = await prisma.project.create({
+      data: {
+        name: data.name,
+        customerId: data.customerId ?? null,
+        status: data.status,
+        priority: data.priority,
+        startAt: data.startDate ? new Date(data.startDate) : null,
+        dueAt: data.dueDate ? new Date(data.dueDate) : null,
+        budgetKurus: data.budget ?? 0,
+        notes: data.notes ?? null,
+      },
+    });
+
+    return NextResponse.json(toResponse(project));
+  } catch (e) {
+    console.error("[api/projects POST]", e);
+    return NextResponse.json(apiError("SERVER_ERROR", "Proje oluşturulamadı"), { status: 500 });
   }
 }
