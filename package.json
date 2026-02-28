@@ -9,8 +9,9 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "postinstall": "prisma generate",
-    "db:migrate": "prisma migrate deploy",
-    "db:seed": "tsx prisma/seed.ts",
+    "db:migrate": "node scripts/run-with-env.mjs npx prisma migrate deploy",
+    "db:seed": "node scripts/run-with-env.mjs npx tsx prisma/seed.ts",
+    "env:create": "node scripts/create-env-local.mjs",
     "preflight": "node scripts/preflight.mjs"
   },
   "dependencies": {

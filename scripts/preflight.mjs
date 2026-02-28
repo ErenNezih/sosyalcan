@@ -1,23 +1,13 @@
-import { readFileSync, existsSync } from "fs";
+import { config } from "dotenv";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const envPath = resolve(__dirname, "../.env");
+const rootDir = resolve(__dirname, "..");
 
-// Load .env if exists
-if (existsSync(envPath)) {
-  const content = readFileSync(envPath, "utf8");
-  for (const line of content.split(/\r?\n/)) {
-    const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
-    if (m && !process.env[m[1]]) {
-      let val = m[2].trim().replace(/\r$/, "");
-      if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'")))
-        val = val.slice(1, -1);
-      process.env[m[1]] = val;
-    }
-  }
-}
+// .env.local oncelikli, sonra .env
+config({ path: resolve(rootDir, ".env.local") });
+config({ path: resolve(rootDir, ".env") });
 
 const REQUIRED_ENV_VARS = ["DATABASE_URL", "SESSION_PASSWORD"];
 

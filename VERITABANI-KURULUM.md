@@ -1,67 +1,67 @@
 # Veritabanı Kurulumu
 
-`npx prisma db push` ve `npm run db:seed` çalışması için PostgreSQL gerekir. Üç yol:
+PostgreSQL + Prisma. `npm run db:migrate` ve `npm run db:seed` için `.env.local` içinde `DATABASE_URL` gerekir.
 
 ---
 
-## Seçenek 1: Docker ile PostgreSQL (Önerilen – tek komut)
+## .env.local Oluşturma
 
-1. **Docker Desktop** kurulu olmalı: https://www.docker.com/products/docker-desktop/
-2. Proje kökünde:
-   ```bash
-   docker-compose up -d
-   ```
-3. Birkaç saniye bekleyin, sonra:
-   ```bash
-   npx prisma db push
+**Yöntem 1 (Otomatik):**
+```powershell
+npm run env:create
+```
+Oluşan `.env.local` dosyasını düzenleyip `DATABASE_URL` ekleyin.
+
+**Yöntem 2 (Manuel):** `.env.example` dosyasını `.env.local` olarak kopyalayıp değerleri doldurun.
+
+---
+
+## Seçenek 1: Vercel Postgres (Önerilen)
+
+1. Vercel Dashboard → Proje → **Storage** → **Create Database** → **Postgres**
+2. **Connect** → **.env.local** tab'ında `DATABASE_URL` görünür
+3. Bu satırı proje kökündeki `.env.local` dosyasına yapıştırın
+4. Komutlar:
+   ```powershell
+   npm run db:migrate
    npm run db:seed
    ```
-4. `.env` zaten `postgres:postgres@localhost:5432/sosyalcan` ile ayarlı; ek bir işlem gerekmez.
-
-Durdurmak için: `docker-compose down`
 
 ---
 
-## Seçenek 2: Ücretsiz Cloud PostgreSQL (Docker yoksa)
+## Seçenek 2: Neon (Ücretsiz Cloud)
 
-1. **Neon** (önerilen): https://neon.tech → Sign up → Yeni proje oluştur.
-2. Dashboard’da **Connection string** kopyalayın (ör. `postgresql://kullanici:sifre@ep-xxx.region.aws.neon.tech/neondb?sslmode=require`).
-3. Proje kökündeki **`.env`** dosyasında `DATABASE_URL` satırını bu bağlantı dizesiyle değiştirin:
+1. https://neon.tech → Sign up → Yeni proje
+2. **Connection string** (URI) kopyalayın
+3. `.env.local` içinde:
    ```env
-   DATABASE_URL="postgresql://kullanici:sifre@ep-xxx.region.aws.neon.tech/neondb?sslmode=require"
+   DATABASE_URL="postgresql://user:pass@ep-xxx.region.aws.neon.tech/neondb?sslmode=require"
    ```
-4. Terminalde:
-   ```bash
-   npx prisma db push
+4. Komutlar:
+   ```powershell
+   npm run db:migrate
    npm run db:seed
    ```
 
-**Alternatif:** https://supabase.com → New project → Settings → Database → Connection string (URI) kopyalayıp `.env` içindeki `DATABASE_URL` yapın.
-
 ---
 
-## Seçenek 3: Windows’ta Yerel PostgreSQL
+## Seçenek 3: Docker (Yerel PostgreSQL)
 
-1. **İndir:** https://www.postgresql.org/download/windows/ (veya https://www.enterprisedb.com/downloads/postgres-postgresql-downloads)
-2. Kurulumda **port 5432** ve bir **şifre** belirleyin (örn. `postgres` kullanıcısı için).
-3. Kurulum sonunda **Stack Builder**’ı atlayabilirsiniz.
-4. **Servisi başlatın:**
-   - `Win + R` → `services.msc` → Enter
-   - Listede **postgresql-x64-16** (veya kurduğunuz sürüm) bulun → Sağ tık → **Start**
-   - Veya PowerShell (Yönetici): `Start-Service postgresql-x64-16`
-5. **`.env`** içinde kullanıcı/şifre/port’u kendi kurulumunuza göre ayarlayın:
+1. `docker-compose up -d`
+2. `.env.local` içinde:
    ```env
-   DATABASE_URL="postgresql://postgres:SIZIN_SIFRENIZ@localhost:5432/sosyalcan?schema=public"
+   DATABASE_URL="postgresql://postgres:postgres@localhost:5432/sosyalcan?schema=public"
    ```
-6. Önce veritabanını oluşturun (pgAdmin veya `psql` ile):
-   - pgAdmin: Serverse sağ tık → Create → Database → Name: `sosyalcan`
-   - veya komut satırı: `psql -U postgres -c "CREATE DATABASE sosyalcan;"`
-7. Sonra proje kökünde:
-   ```bash
-   npx prisma db push
+3. Komutlar:
+   ```powershell
+   npm run db:migrate
    npm run db:seed
    ```
 
 ---
 
-Özet: **Docker** kullanıyorsanız `docker-compose up -d` sonra `npx prisma db push` ve `npm run db:seed`. **Cloud** kullanıyorsanız `.env` içindeki `DATABASE_URL`’i yapıştırıp aynı iki komutu çalıştırın. **Yerel** kurulumda PostgreSQL’i kurup servisi başlattıktan ve `sosyalcan` veritabanını oluşturduktan sonra aynı komutları çalıştırın.
+## Önemli Notlar
+
+- **localhost kullanmayın** Vercel deploy için — P1001 hatası alırsınız
+- `db:migrate` ve `db:seed` önce `.env.local` sonra `.env` okur
+- Vercel'de Environment Variables ayarlayın; build sırasında migration otomatik çalışmaz, ilk deploy sonrası yerelden `npm run db:migrate` ve `npm run db:seed` çalıştırın

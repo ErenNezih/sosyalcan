@@ -58,6 +58,21 @@ export async function POST(request: Request) {
     });
   } catch (e) {
     console.error("[auth/login]", e);
+    const msg = e instanceof Error ? e.message : String(e);
+    const isDbError =
+      !process.env.DATABASE_URL ||
+      /P1001|P1017|connect ECONNREFUSED|connect ETIMEDOUT|Environment variable not found/i.test(msg);
+    if (isDbError) {
+      return NextResponse.json(
+        apiError(
+          "SERVER_ERROR",
+          process.env.DATABASE_URL
+            ? "Veritabanına bağlanılamadı. DATABASE_URL ve migration'ı kontrol edin."
+            : "Veritabanı yapılandırılmamış. .env.local veya Vercel Environment Variables ayarlayın, ardından npm run db:migrate ve npm run db:seed çalıştırın."
+        ),
+        { status: 503 }
+      );
+    }
     return NextResponse.json(
       apiError("SERVER_ERROR", "Giriş yapılamadı"),
       { status: 500 }
