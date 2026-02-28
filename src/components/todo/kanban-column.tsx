@@ -21,12 +21,14 @@ export function KanbanColumn({
   tasks,
   onEdit,
   onMove,
+  onRefresh,
 }: {
   id: string;
   title: string;
   tasks: Task[];
   onEdit: (taskId: string) => void;
   onMove: (taskId: string, status: string, order: number) => Promise<void>;
+  onRefresh?: () => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id });
 
@@ -44,6 +46,7 @@ export function KanbanColumn({
             key={task.id}
             task={task}
             onEdit={() => onEdit(task.id)}
+            onRefresh={onRefresh}
             isDrag={false}
           />
         ))}

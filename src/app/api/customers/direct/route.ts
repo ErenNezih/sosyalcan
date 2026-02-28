@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ID } from "node-appwrite";
 import { getSessionFromRequest, getAppwriteAdmin, APPWRITE } from "@/lib/appwrite/server";
 import { directCustomerSchema } from "@/lib/validations/lead";
+import { sanitizeOptionalFields } from "@/lib/sanitize";
 
 const dbId = APPWRITE.databaseId;
 const collLeads = APPWRITE.collections.leads;
@@ -17,7 +18,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { name, email, phone, sector, budget, source, temperature, company, notes, customQuestionAnswer } = parsed.data;
+  const { name, phone, sector, budget, source, temperature, company, notes, customQuestionAnswer } = parsed.data;
+  const sanitized = sanitizeOptionalFields(parsed.data as Record<string, unknown>);
+  const email = (sanitized.email as string) || "noreply@placeholder.local";
   const { databases } = getAppwriteAdmin();
 
   const leadDoc = await databases.createDocument(dbId, collLeads, ID.unique(), {

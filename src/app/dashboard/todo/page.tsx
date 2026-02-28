@@ -1,15 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { format } from "date-fns";
-import { tr } from "date-fns/locale";
+import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { Plus, Calendar, List } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SlideOver } from "@/components/ui/slide-over";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KanbanBoard } from "@/components/todo/kanban-board";
 import { TaskForm } from "@/components/todo/task-form";
+import { DateToolbar } from "@/components/todo/date-toolbar";
+import { todayString } from "@/lib/date-utils";
 
 type Task = {
   id: string;
@@ -20,28 +20,39 @@ type Task = {
   urgency: string;
   dueDate: string | null;
   order: number;
-  assignee: { id: string; name: string | null } | null;
+  assignee: { id: string; name: string | null; email?: string } | null;
 };
 
 export default function TodoPage() {
+  const searchParams = useSearchParams();
+  const dayParam = searchParams.get("day");
+  const [day, setDay] = useState(dayParam && /^\d{4}-\d{2}-\d{2}$/.test(dayParam) ? dayParam : todayString());
   const [tasks, setTasks] = useState<Task[]>([]);
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
+
+  useEffect(() => {
+    if (dayParam && /^\d{4}-\d{2}-\d{2}$/.test(dayParam) && dayParam !== day) {
+      setDay(dayParam);
+    }
+  }, [dayParam]);
 
   const load = () =>
-    fetch("/api/tasks")
+    fetch(`/api/tasks?day=${day}&archived=${showArchived ? "true" : "false"}`)
       .then((r) => r.json())
       .then((data) => setTasks(Array.isArray(data) ? data : []));
 
   useEffect(() => {
     load();
-  }, []);
+  }, [day, showArchived]);
 
-  const tasksByDate = [...tasks].sort((a, b) => {
-    if (!a.dueDate) return 1;
-    if (!b.dueDate) return -1;
-    return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
-  });
+  function handleDayChange(newDay: string) {
+    setDay(newDay);
+    const url = new URL(window.location.href);
+    url.searchParams.set("day", newDay);
+    window.history.replaceState({}, "", url.pathname + "?" + url.searchParams.toString());
+  }
 
   return (
     <div className="space-y-8">
@@ -56,69 +67,32 @@ export default function TodoPage() {
         </Button>
       </div>
 
-      <Tabs defaultValue="kanban" className="w-full">
-        <TabsList>
-          <TabsTrigger value="kanban" className="gap-2">
-            <List className="h-4 w-4" />
-            Kanban
-          </TabsTrigger>
-          <TabsTrigger value="timeline" className="gap-2">
-            <Calendar className="h-4 w-4" />
-            Tarihli liste
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="kanban">
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <KanbanBoard
-              tasks={tasks}
-              onMove={async (id, status, order) => {
-                await fetch(`/api/tasks/${id}`, {
-                  method: "PATCH",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ status, order }),
-                });
-                load();
-              }}
-              onEdit={(id) => { setEditingId(id); setFormOpen(true); }}
-            />
-          </motion.div>
-        </TabsContent>
-        <TabsContent value="timeline">
-          <div className="rounded-lg border border-white/10 overflow-hidden">
-            <p className="border-b border-white/10 px-4 py-2 text-sm text-muted-foreground">
-              Tüm görevler teslim tarihine göre. Tarihi olmayanlar en sonda. Takvimde bu tarihlerde görünür.
-            </p>
-            <ul className="divide-y divide-white/5">
-              {tasksByDate.map((t) => (
-                <li
-                  key={t.id}
-                  className="flex items-center justify-between px-4 py-3 hover:bg-white/5"
-                >
-                  <div>
-                    <p className="font-medium">{t.title}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {t.status} · {t.assignee?.name ?? "Atanmadı"}
-                      {t.dueDate && (
-                        <> · {format(new Date(t.dueDate), "d MMM yyyy HH:mm", { locale: tr })}</>
-                      )}
-                    </p>
-                  </div>
-                  <Button variant="ghost" size="sm" onClick={() => { setEditingId(t.id); setFormOpen(true); }}>
-                    Düzenle
-                  </Button>
-                </li>
-              ))}
-            </ul>
-            {tasks.length === 0 && (
-              <p className="p-6 text-center text-muted-foreground">Henüz görev yok.</p>
-            )}
-          </div>
-        </TabsContent>
-      </Tabs>
+      <DateToolbar
+        day={day}
+        onDayChange={handleDayChange}
+        showArchived={showArchived}
+        onShowArchivedChange={setShowArchived}
+      />
+
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+      >
+        <KanbanBoard
+          tasks={tasks}
+          onMove={async (id, status, order) => {
+            await fetch(`/api/tasks/${id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ status, order }),
+            });
+            load();
+          }}
+          onEdit={(id) => { setEditingId(id); setFormOpen(true); }}
+          onRefresh={load}
+        />
+      </motion.div>
 
       <SlideOver
         open={formOpen}
@@ -128,6 +102,7 @@ export default function TodoPage() {
         <TaskForm
           taskId={editingId}
           task={editingId ? tasks.find((t) => t.id === editingId) ?? null : null}
+          defaultDueDate={day}
           onSuccess={() => { load(); setFormOpen(false); setEditingId(null); }}
           onCancel={() => { setFormOpen(false); setEditingId(null); }}
         />

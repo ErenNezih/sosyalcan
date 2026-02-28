@@ -3,16 +3,18 @@
 import type { Lead } from "@/types/crm";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ArchiveRestoreDropdown } from "@/components/archive/archive-restore-dropdown";
 
 export function LeadList({
   leads,
   onSelect,
   onConverted,
+  showArchived = false,
 }: {
   leads: Lead[];
   onSelect: (id: string) => void;
   onConverted: () => void;
+  showArchived?: boolean;
 }) {
   if (leads.length === 0) {
     return (
@@ -32,6 +34,7 @@ export function LeadList({
             <th className="px-4 py-3 font-medium">E-posta</th>
             <th className="px-4 py-3 font-medium">Kaynak</th>
             <th className="px-4 py-3 font-medium">Durum</th>
+            <th className="px-4 py-3 font-medium w-10"></th>
           </tr>
         </thead>
         <tbody>
@@ -59,6 +62,14 @@ export function LeadList({
                 ) : (
                   <span className="text-muted-foreground">Potansiyel</span>
                 )}
+              </td>
+              <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                <ArchiveRestoreDropdown
+                  entityType="lead"
+                  entityId={lead.id}
+                  isArchived={!!(lead as { is_deleted?: boolean }).is_deleted}
+                  onSuccess={onConverted}
+                />
               </td>
             </tr>
           ))}

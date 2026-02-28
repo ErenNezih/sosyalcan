@@ -16,8 +16,11 @@ export const LEAD_TEMPERATURES = [
 ] as const;
 
 export const leadSchema = z.object({
-  name: z.string().min(1, "Ad gerekli"),
-  email: z.string().email("Geçerli e-posta girin"),
+  name: z.string().min(2, "Ad en az 2 karakter olmalı"),
+  email: z.preprocess(
+    (v) => (v === "" || v === null || v === undefined ? undefined : v),
+    z.string().email("Geçerli e-posta girin").optional()
+  ),
   phone: z.string().optional(),
   sector: z.string().optional(),
   budget: z.string().optional(),

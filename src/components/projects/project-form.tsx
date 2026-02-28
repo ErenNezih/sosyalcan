@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/api-error-message";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -81,8 +82,9 @@ export function ProjectForm({ open, onOpenChange, onSuccess }: ProjectFormProps)
       });
 
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || "Proje oluşturulamadı");
+        const body = await res.json().catch(() => ({}));
+        toast.error(getApiErrorMessage(res, body, "Proje oluşturulamadı"));
+        return;
       }
 
       toast.success("Proje oluşturuldu");

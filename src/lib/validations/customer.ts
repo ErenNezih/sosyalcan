@@ -2,7 +2,10 @@ import { z } from "zod";
 
 export const customerSchema = z.object({
   name: z.string().min(1, "Ad gerekli"),
-  email: z.string().email("Geçerli e-posta girin"),
+  email: z.preprocess(
+    (v) => (v === "" || v === null || v === undefined ? undefined : v),
+    z.string().email("Geçerli e-posta girin").optional()
+  ),
   phone: z.string().optional(),
   company: z.string().optional(),
   notes: z.string().optional(),

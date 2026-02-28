@@ -12,11 +12,13 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
 
   const fetchProjects = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/projects");
+      const archived = showArchived ? "true" : "false";
+      const res = await fetch(`/api/projects?archived=${archived}`);
       if (!res.ok) throw new Error("Projeler yüklenemedi");
       const data = await res.json();
       setProjects(data.documents || []);
@@ -29,7 +31,7 @@ export default function ProjectsPage() {
 
   useEffect(() => {
     fetchProjects();
-  }, []);
+  }, [showArchived]);
 
   return (
     <div className="space-y-8">
@@ -46,11 +48,23 @@ export default function ProjectsPage() {
         </Button>
       </div>
 
-      <ProjectList 
-        projects={projects} 
-        loading={loading} 
-        onRefresh={fetchProjects} 
-      />
+      <div className="space-y-3">
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={showArchived}
+            onChange={(e) => setShowArchived(e.target.checked)}
+            className="rounded text-primary"
+          />
+          Arşivdekileri göster
+        </label>
+        <ProjectList
+          projects={projects}
+          loading={loading}
+          onRefresh={fetchProjects}
+          showArchived={showArchived}
+        />
+      </div>
 
       <ProjectForm 
         open={isFormOpen} 

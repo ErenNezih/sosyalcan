@@ -21,11 +21,13 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const customerId = searchParams.get("customerId");
+    const archived = searchParams.get("archived");
     const limit = parseInt(searchParams.get("limit") || "50");
 
     const { databases } = getAppwriteAdmin();
     const queries = [Query.orderDesc("created_at"), Query.limit(limit)];
-    
+    if (archived === "true") queries.push(Query.equal("is_deleted", true));
+    else if (archived !== "all") queries.push(Query.notEqual("is_deleted", true));
     if (customerId) queries.push(Query.equal("customer_id", customerId));
 
     const res = await databases.listDocuments(

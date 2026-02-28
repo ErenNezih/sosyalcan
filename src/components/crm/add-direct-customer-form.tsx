@@ -62,8 +62,8 @@ export function AddDirectCustomerForm({
         {errors.name && <p className="mt-1 text-xs text-destructive">{errors.name.message}</p>}
       </div>
       <div>
-        <Label htmlFor="email">E-posta *</Label>
-        <Input id="email" type="email" className="mt-1 bg-white/5" {...register("email")} />
+        <Label htmlFor="email">E-posta (opsiyonel)</Label>
+        <Input id="email" type="email" placeholder="opsiyonel" className="mt-1 bg-white/5" {...register("email")} />
         {errors.email && <p className="mt-1 text-xs text-destructive">{errors.email.message}</p>}
       </div>
       <div>

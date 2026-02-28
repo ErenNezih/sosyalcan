@@ -15,11 +15,16 @@ export async function GET(request: Request) {
   if (!session?.$id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
+    const archived = new URL(request.url).searchParams.get("archived");
+    const customerQueries = [Query.orderDesc("$createdAt")];
+    if (archived === "true") customerQueries.push(Query.equal("is_deleted", true));
+    else if (archived !== "all") {
+      customerQueries.push(Query.notEqual("is_deleted", true));
+      customerQueries.push(Query.isNull("deleted_at")); // legacy compat
+    }
+
     const { databases } = getAppwriteAdmin();
-    const customersRes = await databases.listDocuments(dbId, collCustomers, [
-      Query.isNull("deleted_at"),
-      Query.orderDesc("$createdAt"),
-    ]);
+    const customersRes = await databases.listDocuments(dbId, collCustomers, customerQueries);
     const customers = mapDocumentList(customersRes);
 
     const withContactStatus = new URL(request.url).searchParams.get("withContactStatus") === "1";

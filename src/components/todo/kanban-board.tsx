@@ -36,10 +36,12 @@ export function KanbanBoard({
   tasks: tasksProp,
   onMove,
   onEdit,
+  onRefresh,
 }: {
   tasks: Task[];
   onMove: (taskId: string, status: string, order: number) => Promise<void>;
   onEdit: (taskId: string) => void;
+  onRefresh?: () => void;
 }) {
   const tasks = Array.isArray(tasksProp) ? tasksProp : [];
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -77,6 +79,7 @@ export function KanbanBoard({
             tasks={tasks.filter((t) => t.status === col.id)}
             onEdit={onEdit}
             onMove={onMove}
+            onRefresh={onRefresh}
           />
         ))}
       </div>

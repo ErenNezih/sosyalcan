@@ -19,13 +19,15 @@ export default function ProjectDetailPage() {
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [showArchivedDeliverables, setShowArchivedDeliverables] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
     try {
+      const archived = showArchivedDeliverables ? "true" : "false";
       const [projectRes, deliverablesRes] = await Promise.all([
         fetch(`/api/projects/${id}`),
-        fetch(`/api/deliverables?projectId=${id}`),
+        fetch(`/api/deliverables?projectId=${id}&archived=${archived}`),
       ]);
 
       if (!projectRes.ok) throw new Error("Proje bulunamadı");
@@ -47,7 +49,7 @@ export default function ProjectDetailPage() {
 
   useEffect(() => {
     if (id) fetchData();
-  }, [id]);
+  }, [id, showArchivedDeliverables]);
 
   if (loading || !project) {
     return <div className="p-8 text-center text-muted-foreground">Yükleniyor...</div>;
@@ -76,7 +78,18 @@ export default function ProjectDetailPage() {
         <div className="col-span-2 space-y-6">
           <div className="rounded-lg border border-white/10 bg-card p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-medium">Teslim Kalemleri</h2>
+              <div className="flex items-center gap-3">
+                <h2 className="text-lg font-medium">Teslim Kalemleri</h2>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={showArchivedDeliverables}
+                    onChange={(e) => setShowArchivedDeliverables(e.target.checked)}
+                    className="rounded text-primary"
+                  />
+                  Arşivdekileri göster
+                </label>
+              </div>
               <Button size="sm" onClick={() => setIsFormOpen(true)} className="gap-2">
                 <Plus className="h-4 w-4" />
                 Ekle

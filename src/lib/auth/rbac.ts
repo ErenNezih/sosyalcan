@@ -19,12 +19,11 @@ export async function getUserRole(userId: string): Promise<Role> {
     }
     
     // Default role if no profile found (e.g. first user or not set)
-    // For safety, default to readonly or staff? 
-    // Let's default to 'readonly' for safety.
-    return "readonly";
+    // Default to staff so new users can create projects/leads/customers
+    return "staff";
   } catch (error) {
     console.error("Error fetching user role:", error);
-    return "readonly";
+    return "staff";
   }
 }
 

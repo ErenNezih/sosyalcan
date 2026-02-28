@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/api-error-message";
 
 type Task = {
   id: string;
@@ -19,11 +21,13 @@ type Task = {
 export function TaskForm({
   taskId,
   task,
+  defaultDueDate,
   onSuccess,
   onCancel,
 }: {
   taskId: string | null;
   task: Task | null;
+  defaultDueDate?: string;
   onSuccess: () => void;
   onCancel: () => void;
 }) {
@@ -34,7 +38,7 @@ export function TaskForm({
   const [assigneeId, setAssigneeId] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [loading, setLoading] = useState(false);
-  const [users, setUsers] = useState<{ id: string; name: string | null }[]>([]);
+  const [users, setUsers] = useState<{ id: string; name: string | null; email?: string }[]>([]);
 
   useEffect(() => {
     if (task) {
@@ -44,8 +48,10 @@ export function TaskForm({
       setUrgency(task.urgency);
       setAssigneeId(task.assigneeId ?? "");
       setDueDate(task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 16) : "");
+    } else if (defaultDueDate) {
+      setDueDate(defaultDueDate + "T09:00");
     }
-  }, [task]);
+  }, [task, defaultDueDate]);
 
   useEffect(() => {
     fetch("/api/users")
@@ -67,10 +73,15 @@ export function TaskForm({
             status,
             urgency,
             assigneeId: assigneeId || null,
-            dueDate: dueDate ? new Date(dueDate) : null,
+            dueDate: dueDate ? new Date(dueDate).toISOString() : null,
           }),
         });
-        if (res.ok) onSuccess();
+        if (res.ok) {
+          onSuccess();
+        } else {
+          const body = await res.json().catch(() => ({}));
+          toast.error(getApiErrorMessage(res, body, "Görev güncellenemedi"));
+        }
       } else {
         const res = await fetch("/api/tasks", {
           method: "POST",
@@ -81,10 +92,15 @@ export function TaskForm({
             status,
             urgency,
             assigneeId: assigneeId || null,
-            dueDate: dueDate ? new Date(dueDate) : null,
+            dueDate: dueDate ? new Date(dueDate).toISOString() : null,
           }),
         });
-        if (res.ok) onSuccess();
+        if (res.ok) {
+          onSuccess();
+        } else {
+          const body = await res.json().catch(() => ({}));
+          toast.error(getApiErrorMessage(res, body, "Görev eklenemedi"));
+        }
       }
     } finally {
       setLoading(false);
@@ -134,7 +150,9 @@ export function TaskForm({
         >
           <option value="">—</option>
           {users.map((u) => (
-            <option key={u.id} value={u.id}>{u.name ?? u.id}</option>
+            <option key={u.id} value={u.id}>
+              {u.name ? (u.email ? `${u.name} (${u.email})` : u.name) : u.email || u.id}
+            </option>
           ))}
         </select>
       </div>

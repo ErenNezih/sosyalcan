@@ -3,6 +3,7 @@ import { ID } from "node-appwrite";
 import { getSessionFromRequest, getAppwriteAdmin, APPWRITE } from "@/lib/appwrite/server";
 import { mapDocument, mapDocumentList, Query } from "@/lib/appwrite/helpers";
 import { leadSchema } from "@/lib/validations/lead";
+import { sanitizeOptionalFields } from "@/lib/sanitize";
 
 const dbId = APPWRITE.databaseId;
 const collLeads = APPWRITE.collections.leads;
@@ -12,9 +13,14 @@ export async function GET(request: Request) {
   const session = await getSessionFromRequest(request);
   if (!session?.$id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const archived = new URL(request.url).searchParams.get("archived");
+  const leadQueries = [Query.orderDesc("$createdAt")];
+  if (archived === "true") leadQueries.push(Query.equal("is_deleted", true));
+  else if (archived !== "all") leadQueries.push(Query.notEqual("is_deleted", true));
+
   const { databases } = getAppwriteAdmin();
   const [leadsRes, customersRes] = await Promise.all([
-    databases.listDocuments(dbId, collLeads, [Query.orderDesc("$createdAt")]),
+    databases.listDocuments(dbId, collLeads, leadQueries),
     databases.listDocuments(dbId, collCustomers, []),
   ]);
 
@@ -42,9 +48,10 @@ export async function POST(request: Request) {
   }
 
   const { databases } = getAppwriteAdmin();
+  const sanitized = sanitizeOptionalFields(parsed.data as Record<string, unknown>);
   const data = {
     name: parsed.data.name,
-    email: parsed.data.email,
+    email: (sanitized.email as string) || "noreply@placeholder.local",
     phone: parsed.data.phone ?? "",
     sector: parsed.data.sector ?? "",
     budget: parsed.data.budget ?? "",

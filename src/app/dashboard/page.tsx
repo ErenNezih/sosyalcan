@@ -19,11 +19,13 @@ async function WidgetMonthlyRevenue() {
     const [incomeRes, expenseRes] = await Promise.all([
       databases.listDocuments(dbId, APPWRITE.collections.transactions, [
         Query.equal("type", "income"),
+        Query.notEqual("is_deleted", true),
         Query.greaterThanEqual("date", start),
         Query.lessThanEqual("date", end),
       ]),
       databases.listDocuments(dbId, APPWRITE.collections.transactions, [
         Query.equal("type", "expense"),
+        Query.notEqual("is_deleted", true),
         Query.greaterThanEqual("date", start),
         Query.lessThanEqual("date", end),
       ]),
@@ -71,6 +73,7 @@ async function WidgetNewLeads() {
     const { databases } = getAppwriteAdmin();
     const res = await databases.listDocuments(dbId, APPWRITE.collections.leads, [
       Query.isNull("converted_at"),
+      Query.notEqual("is_deleted", true),
       Query.limit(1),
     ]);
     const count = res.total;
@@ -111,6 +114,7 @@ async function WidgetTodayAppointments() {
     const end = endOfDay(new Date()).toISOString();
     const { databases } = getAppwriteAdmin();
     const res = await databases.listDocuments(dbId, APPWRITE.collections.appointments, [
+      Query.notEqual("is_deleted", true),
       Query.greaterThanEqual("start", start),
       Query.lessThanEqual("start", end),
       Query.limit(1),
@@ -152,6 +156,7 @@ async function WidgetActiveSubscriptions() {
     const { databases } = getAppwriteAdmin();
     const res = await databases.listDocuments(dbId, APPWRITE.collections.subscriptions, [
       Query.equal("status", "active"),
+      Query.notEqual("is_deleted", true),
       Query.limit(1),
     ]);
     const count = res.total;

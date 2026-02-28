@@ -64,6 +64,15 @@ Vercel Cron kullanarak periyodik görevleri çalıştırın. `vercel.json` dosya
 ```
 Vercel projesinde Cron Jobs sekmesinden `CRON_SECRET` header'ını ayarlayın (Authorization: Bearer <SECRET>).
 
+## Silme = Arşivleme (Soft Delete)
+
+Tüm modüllerde "silme" işlemi **arşivleme** olarak çalışır. Kayıtlar kalıcı olarak silinmez; `archived_at`, `archived_by` ve `is_deleted` alanları ile işaretlenir.
+
+- **Varsayılan listelerde** arşivli kayıtlar görünmez.
+- **"Arşivdekileri göster"** toggle ile arşivli kayıtlar listelenebilir.
+- **Geri Yükle** butonu ile arşivden çıkarılabilir.
+- **Finans işlemleri** arşivlendiğinde bakiyeler otomatik geri alınır (reversal).
+
 ## Özellikler (v0.2.0)
 
 - **Kokpit**: Özet metrikler ve uyarılar.

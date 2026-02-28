@@ -15,11 +15,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { ArchiveRestoreDropdown } from "@/components/archive/archive-restore-dropdown";
+import { getApiErrorMessage } from "@/lib/api-error-message";
 
 interface ProjectListProps {
   projects: Project[];
   loading: boolean;
   onRefresh: () => void;
+  showArchived?: boolean;
 }
 
 export function ProjectList({ projects, loading, onRefresh }: ProjectListProps) {
@@ -52,16 +55,19 @@ export function ProjectList({ projects, loading, onRefresh }: ProjectListProps) 
     low: { label: "Düşük", color: "text-green-500" },
   };
 
-  async function archiveProject(id: string) {
-    if (!confirm("Projeyi arşivlemek istediğinize emin misiniz?")) return;
+  async function handleArchiveRestore(id: string, isArchived: boolean) {
+    if (!confirm(isArchived ? "Projeyi geri yüklemek istiyor musunuz?" : "Projeyi arşivlemek istediğinize emin misiniz?")) return;
+    const url = isArchived ? `/api/projects/${id}/restore` : `/api/projects/${id}/archive`;
     try {
-      const res = await fetch(`/api/projects/${id}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) throw new Error("Arşivlenemedi");
-      toast.success("Proje arşivlendi");
+      const res = await fetch(url, { method: "PATCH" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        toast.error(getApiErrorMessage(res, body, isArchived ? "Proje geri yüklenemedi" : "Proje arşivlenemedi"));
+        return;
+      }
+      toast.success(isArchived ? "Proje geri yüklendi" : "Proje arşivlendi");
       onRefresh();
-    } catch (error) {
+    } catch {
       toast.error("Hata oluştu");
     }
   }
@@ -128,8 +134,15 @@ export function ProjectList({ projects, loading, onRefresh }: ProjectListProps) 
                     <DropdownMenuItem asChild>
                       <Link href={`/dashboard/projects/${project.id}`}>Detaylar</Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => archiveProject(project.id)} className="text-red-500">
-                      Arşivle
+                    <DropdownMenuItem
+                      onClick={() => handleArchiveRestore(project.id, project.status === "archived" || !!(project as { is_deleted?: boolean }).is_deleted)}
+                      className={(project.status === "archived" || (project as { is_deleted?: boolean }).is_deleted) ? "" : "text-red-500"}
+                    >
+                      {(project.status === "archived" || (project as { is_deleted?: boolean }).is_deleted) ? (
+                        <>Geri Yükle</>
+                      ) : (
+                        <>Arşivle</>
+                      )}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

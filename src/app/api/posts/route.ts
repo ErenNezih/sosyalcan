@@ -10,8 +10,13 @@ export async function GET(request: Request) {
   const session = await getSessionFromRequest(request);
   if (!session?.$id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const archived = new URL(request.url).searchParams.get("archived");
+  const queries = [Query.orderDesc("$createdAt")];
+  if (archived === "true") queries.push(Query.equal("is_deleted", true));
+  else if (archived !== "all") queries.push(Query.notEqual("is_deleted", true));
+
   const { databases } = getAppwriteAdmin();
-  const res = await databases.listDocuments(dbId, coll, [Query.orderDesc("$createdAt")]);
+  const res = await databases.listDocuments(dbId, coll, queries);
   return NextResponse.json(mapDocumentList(res));
 }
 

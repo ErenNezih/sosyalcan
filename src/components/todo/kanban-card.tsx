@@ -3,6 +3,7 @@
 import { useDraggable } from "@dnd-kit/core";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
+import { ArchiveRestoreDropdown } from "@/components/archive/archive-restore-dropdown";
 
 type Task = {
   id: string;
@@ -13,16 +14,18 @@ type Task = {
   urgency: string;
   dueDate: string | null;
   order: number;
-  assignee: { id: string; name: string | null } | null;
+  assignee: { id: string; name: string | null; email?: string } | null;
 };
 
 export function KanbanCard({
   task,
   onEdit,
+  onRefresh,
   isDrag,
 }: {
   task: Task;
   onEdit: () => void;
+  onRefresh?: () => void;
   isDrag?: boolean;
 }) {
   const { attributes, listeners, setNodeRef } = useDraggable({
@@ -37,25 +40,32 @@ export function KanbanCard({
       ref={setNodeRef}
       {...(!isDrag ? { ...attributes, ...listeners } : {})}
       onClick={!isDrag ? onEdit : undefined}
-      className="cursor-grab rounded-lg border border-white/10 bg-card p-3 active:cursor-grabbing hover:border-white/20"
+      className="group relative cursor-grab rounded-lg border border-white/10 bg-card p-3 active:cursor-grabbing hover:border-white/20"
     >
-      <p className="font-medium text-foreground">{task.title}</p>
-      {task.dueDate && (
-        <p className="mt-1 text-xs text-muted-foreground">
-          {format(new Date(task.dueDate), "d MMM", { locale: tr })}
-        </p>
+      {!isDrag && onRefresh && (
+        <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+          <ArchiveRestoreDropdown
+            entityType="task"
+            entityId={task.id}
+            isArchived={!!(task as { is_deleted?: boolean }).is_deleted}
+            onSuccess={onRefresh}
+          />
+        </div>
       )}
-      <div className="mt-2 flex items-center justify-between">
+      <p className="font-medium text-foreground pr-8">{task.title}</p>
+      <div className="mt-1 flex flex-wrap items-center gap-1">
+        {task.dueDate && (
+          <span className="text-xs text-muted-foreground">
+            {format(new Date(task.dueDate), "d MMM", { locale: tr })}
+          </span>
+        )}
         <span className={`rounded px-2 py-0.5 text-xs ${urgencyColor}`}>
           {task.urgency === "high" ? "Acil" : task.urgency === "medium" ? "Orta" : "Düşük"}
         </span>
         {task.assignee && (
-          <div
-            className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 text-xs font-medium text-primary"
-            title={task.assignee.name ?? ""}
-          >
-            {(task.assignee.name ?? "?")[0]}
-          </div>
+          <span className="text-xs text-muted-foreground truncate max-w-[100px]" title={task.assignee.email ?? undefined}>
+            {task.assignee.name || task.assignee.email || "—"}
+          </span>
         )}
       </div>
     </div>

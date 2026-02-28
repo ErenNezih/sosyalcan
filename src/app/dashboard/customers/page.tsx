@@ -21,19 +21,26 @@ export default function CustomersPage() {
   const [addCustomerOpen, setAddCustomerOpen] = useState(false);
   const [assignPackageCustomerId, setAssignPackageCustomerId] = useState<string | null>(null);
 
+  const [showArchivedLeads, setShowArchivedLeads] = useState(false);
+  const [showArchivedCustomers, setShowArchivedCustomers] = useState(false);
+
   const loadLeads = async () => {
-    const res = await fetch("/api/leads");
+    const archived = showArchivedLeads ? "true" : "false";
+    const res = await fetch(`/api/leads?archived=${archived}`);
     if (res.ok) setLeads(await res.json());
   };
   const loadCustomers = async () => {
-    const res = await fetch("/api/customers?withContactStatus=1");
+    const archived = showArchivedCustomers ? "true" : "false";
+    const res = await fetch(`/api/customers?withContactStatus=1&archived=${archived}`);
     if (res.ok) setCustomers(await res.json());
   };
 
   useEffect(() => {
     loadLeads();
+  }, [showArchivedLeads]);
+  useEffect(() => {
     loadCustomers();
-  }, []);
+  }, [showArchivedCustomers]);
 
   const selectedLead = selectedLeadId ? leads.find((l) => l.id === selectedLeadId) : null;
 
@@ -66,7 +73,17 @@ export default function CustomersPage() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
+            className="space-y-3"
           >
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={showArchivedLeads}
+                onChange={(e) => setShowArchivedLeads(e.target.checked)}
+                className="rounded text-primary"
+              />
+              Arşivdekileri göster
+            </label>
             <LeadList
               leads={leads}
               onSelect={(id) => setSelectedLeadId(id)}
@@ -75,6 +92,7 @@ export default function CustomersPage() {
                 loadCustomers();
                 setSelectedLeadId(null);
               }}
+              showArchived={showArchivedLeads}
             />
           </motion.div>
         </TabsContent>
@@ -83,7 +101,17 @@ export default function CustomersPage() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
+            className="space-y-3"
           >
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={showArchivedCustomers}
+                onChange={(e) => setShowArchivedCustomers(e.target.checked)}
+                className="rounded text-primary"
+              />
+              Arşivdekileri göster
+            </label>
             <CustomerList
               customers={customers}
               onAssignPackage={(id) => setAssignPackageCustomerId(id)}
@@ -91,6 +119,7 @@ export default function CustomersPage() {
                 loadCustomers();
                 setAssignPackageCustomerId(null);
               }}
+              showArchived={showArchivedCustomers}
             />
           </motion.div>
         </TabsContent>

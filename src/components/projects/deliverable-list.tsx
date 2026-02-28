@@ -13,13 +13,15 @@ import {
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
+import { getApiErrorMessage } from "@/lib/api-error-message";
 
 interface DeliverableListProps {
   deliverables: Deliverable[];
   onRefresh: () => void;
+  showArchived?: boolean;
 }
 
-export function DeliverableList({ deliverables, onRefresh }: DeliverableListProps) {
+export function DeliverableList({ deliverables, onRefresh, showArchived }: DeliverableListProps) {
   if (deliverables.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-white/10 p-8 text-center">
@@ -39,6 +41,7 @@ export function DeliverableList({ deliverables, onRefresh }: DeliverableListProp
     revision: { label: "Revize", color: "bg-orange-500/10 text-orange-500", icon: AlertCircle },
     approved: { label: "Onaylandı", color: "bg-green-500/10 text-green-500", icon: Check },
     delivered: { label: "Teslim Edildi", color: "bg-purple-500/10 text-purple-500", icon: Check },
+    archived: { label: "Arşivlendi", color: "bg-gray-600/10 text-gray-400", icon: Clock },
   };
 
   async function updateStatus(id: string, status: string) {
@@ -56,16 +59,19 @@ export function DeliverableList({ deliverables, onRefresh }: DeliverableListProp
     }
   }
 
-  async function deleteDeliverable(id: string) {
-    if (!confirm("Silmek istediğinize emin misiniz?")) return;
+  async function archiveOrRestore(id: string, isArchived: boolean) {
+    const url = isArchived ? `/api/deliverables/${id}/restore` : `/api/deliverables/${id}/archive`;
+    if (!confirm(isArchived ? "Geri yüklemek istiyor musunuz?" : "Arşivlemek istediğinize emin misiniz?")) return;
     try {
-      const res = await fetch(`/api/deliverables/${id}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) throw new Error("Silinemedi");
-      toast.success("Silindi");
+      const res = await fetch(url, { method: "PATCH" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        toast.error(getApiErrorMessage(res, body, isArchived ? "Geri yüklenemedi" : "Arşivlenemedi"));
+        return;
+      }
+      toast.success(isArchived ? "Geri yüklendi" : "Arşivlendi");
       onRefresh();
-    } catch (error) {
+    } catch {
       toast.error("Hata oluştu");
     }
   }
@@ -123,8 +129,11 @@ export function DeliverableList({ deliverables, onRefresh }: DeliverableListProp
                   <DropdownMenuItem onClick={() => updateStatus(item.id, "delivered")}>
                     Teslim Et
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => deleteDeliverable(item.id)} className="text-red-500">
-                    Sil
+                  <DropdownMenuItem
+                    onClick={() => archiveOrRestore(item.id, item.status === "archived" || !!(item as { is_deleted?: boolean }).is_deleted)}
+                    className={(item.status === "archived" || (item as { is_deleted?: boolean }).is_deleted) ? "" : "text-red-500"}
+                  >
+                    {(item.status === "archived" || (item as { is_deleted?: boolean }).is_deleted) ? "Geri Yükle" : "Arşivle"}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

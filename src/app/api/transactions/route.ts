@@ -47,10 +47,13 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const from = searchParams.get("from");
     const to = searchParams.get("to");
+    const archived = searchParams.get("archived");
     const limit = parseInt(searchParams.get("limit") || "100");
 
     const { databases } = getAppwriteAdmin();
     const queries = [Query.orderDesc("date"), Query.limit(limit)];
+    if (archived === "true") queries.push(Query.equal("is_deleted", true));
+    else if (archived !== "all") queries.push(Query.notEqual("is_deleted", true));
     if (from) queries.push(Query.greaterThanEqual("date", from));
     if (to) queries.push(Query.lessThanEqual("date", to));
 

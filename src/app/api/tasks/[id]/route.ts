@@ -6,6 +6,39 @@ import { auditLog } from "@/lib/audit";
 const dbId = APPWRITE.databaseId;
 const coll = APPWRITE.collections.tasks;
 
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await getSessionFromRequest(request);
+  if (!session?.$id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id } = await params;
+  const { databases, users } = getAppwriteAdmin();
+  try {
+    const doc = await databases.getDocument(dbId, coll, id);
+    const mapped = mapDocument(doc);
+    const assigneeId = doc.assignee_id as string | undefined;
+    let assignee = null;
+    if (assigneeId) {
+      try {
+        const u = await users.get(assigneeId);
+        assignee = { id: u.$id, name: u.name ?? null, email: u.email };
+      } catch {
+        // user may be deleted
+      }
+    }
+    return NextResponse.json({
+      ...mapped,
+      dueDate: mapped.due_date ?? null,
+      assigneeId: mapped.assignee_id ?? null,
+      assignee,
+    });
+  } catch {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+}
+
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }

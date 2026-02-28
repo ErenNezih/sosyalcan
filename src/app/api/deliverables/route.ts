@@ -27,11 +27,14 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get("projectId");
     const status = searchParams.get("status");
+    const archived = searchParams.get("archived");
     const limit = parseInt(searchParams.get("limit") || "50");
 
     const { databases } = getAppwriteAdmin();
     const queries = [Query.orderDesc("created_at"), Query.limit(limit)];
     
+    if (archived === "true") queries.push(Query.equal("is_deleted", true));
+    else if (archived !== "all") queries.push(Query.notEqual("is_deleted", true));
     if (projectId) queries.push(Query.equal("project_id", projectId));
     if (status) queries.push(Query.equal("status", status));
 

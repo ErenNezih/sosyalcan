@@ -4,6 +4,7 @@ import type { Customer, Lead, Subscription, CustomerWithRelations } from "@/type
 import { CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { ArchiveRestoreDropdown } from "@/components/archive/archive-restore-dropdown";
 
 export type { CustomerWithRelations };
 
@@ -25,10 +26,12 @@ export function CustomerList({
   customers,
   onAssignPackage,
   onUpdated,
+  showArchived = false,
 }: {
   customers: CustomerWithRelations[];
   onAssignPackage: (customerId: string) => void;
   onUpdated: () => void;
+  showArchived?: boolean;
 }) {
   if (customers.length === 0) {
     return (
@@ -48,6 +51,7 @@ export function CustomerList({
             <th className="px-4 py-3 font-medium">E-posta</th>
             <th className="px-4 py-3 font-medium">Paket</th>
             <th className="px-4 py-3 font-medium">İşlem</th>
+            <th className="px-4 py-3 font-medium w-10"></th>
           </tr>
         </thead>
         <tbody>
@@ -85,6 +89,14 @@ export function CustomerList({
                     <CreditCard className="h-3 w-3" />
                     Paket Ata
                   </Button>
+                </td>
+                <td className="px-4 py-3">
+                  <ArchiveRestoreDropdown
+                    entityType="customer"
+                    entityId={c.id}
+                    isArchived={!!(c as { is_deleted?: boolean }).is_deleted}
+                    onSuccess={onUpdated}
+                  />
                 </td>
               </tr>
             );

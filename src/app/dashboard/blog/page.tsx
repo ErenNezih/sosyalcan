@@ -6,6 +6,7 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SlideOver } from "@/components/ui/slide-over";
 import { BlogPostForm } from "@/components/blog/blog-post-form";
+import { ArchiveRestoreDropdown } from "@/components/archive/archive-restore-dropdown";
 
 type Post = {
   id: string;
@@ -24,15 +25,16 @@ export default function BlogPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
 
   const load = () =>
-    fetch("/api/posts")
+    fetch(`/api/posts?archived=${showArchived ? "true" : "false"}`)
       .then((r) => r.json())
       .then((data) => setPosts(Array.isArray(data) ? data : []));
 
   useEffect(() => {
     load();
-  }, []);
+  }, [showArchived]);
 
   const safePosts = Array.isArray(posts) ? posts : [];
   const editingPost = editingId ? safePosts.find((p) => p.id === editingId) : null;
@@ -55,6 +57,15 @@ export default function BlogPage() {
         animate={{ opacity: 1, y: 0 }}
         className="space-y-3"
       >
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={showArchived}
+            onChange={(e) => setShowArchived(e.target.checked)}
+            className="rounded text-primary"
+          />
+          Arşivdekileri göster
+        </label>
         {safePosts.length === 0 ? (
           <div className="glass-card rounded-lg p-8 text-center text-muted-foreground">
             Henüz yazı yok.
@@ -63,23 +74,33 @@ export default function BlogPage() {
           safePosts.map((post) => (
             <div
               key={post.id}
-              onClick={() => { setEditingId(post.id); setFormOpen(true); }}
-              className="flex cursor-pointer items-center gap-4 rounded-lg border border-white/10 bg-white/5 p-4 hover:border-white/20"
+              className="flex items-center gap-4 rounded-lg border border-white/10 bg-white/5 p-4 hover:border-white/20"
             >
-              {post.coverImageUrl && (
-                <img
-                  src={post.coverImageUrl}
-                  alt=""
-                  className="h-16 w-24 rounded object-cover"
-                />
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="font-medium truncate">{post.title}</p>
-                <p className="text-sm text-muted-foreground truncate">{post.slug}</p>
+              <div
+                className="flex min-w-0 flex-1 cursor-pointer items-center gap-4"
+                onClick={() => { setEditingId(post.id); setFormOpen(true); }}
+              >
+                {post.coverImageUrl && (
+                  <img
+                    src={post.coverImageUrl}
+                    alt=""
+                    className="h-16 w-24 rounded object-cover"
+                  />
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium truncate">{post.title}</p>
+                  <p className="text-sm text-muted-foreground truncate">{post.slug}</p>
+                </div>
               </div>
               <div className="text-sm text-muted-foreground">
                 {post.publishedAt ? "Yayında" : "Taslak"}
               </div>
+              <ArchiveRestoreDropdown
+                entityType="post"
+                entityId={post.id}
+                isArchived={!!(post as { is_deleted?: boolean }).is_deleted}
+                onSuccess={load}
+              />
             </div>
           ))
         )}

@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Video } from "lucide-react";
+import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/api-error-message";
 
 const TYPES = ["crm", "todo", "finance"] as const;
 
@@ -104,7 +106,12 @@ export function AppointmentForm({
             relatedType: relatedType || null,
           }),
         });
-        if (res.ok) onSuccess();
+        if (res.ok) {
+          onSuccess();
+        } else {
+          const body = await res.json().catch(() => ({}));
+          toast.error(getApiErrorMessage(res, body, "Randevu güncellenemedi"));
+        }
       } else {
         const res = await fetch("/api/appointments", {
           method: "POST",
@@ -112,14 +119,19 @@ export function AppointmentForm({
           body: JSON.stringify({
             title,
             description: desc,
-            start: new Date(start),
-            end: new Date(end),
+            start: new Date(start).toISOString(),
+            end: new Date(end).toISOString(),
             type,
             relatedId: relatedId || null,
             relatedType: relatedType || null,
           }),
         });
-        if (res.ok) onSuccess();
+        if (res.ok) {
+          onSuccess();
+        } else {
+          const body = await res.json().catch(() => ({}));
+          toast.error(getApiErrorMessage(res, body, "Randevu eklenemedi"));
+        }
       }
     } finally {
       setLoading(false);
