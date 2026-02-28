@@ -1,27 +1,30 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Pencil, Trash2, CheckSquare } from "lucide-react";
+import { Pencil, Trash2, CheckSquare, Video } from "lucide-react";
 
 export type CalendarEventItem =
   | { kind: "appointment"; id: string; title: string; start: string; end: string; type: string; assignee?: string | null }
-  | { kind: "task"; id: string; title: string; start: string; end: string; status: string; assignee?: string | null };
+  | { kind: "task"; id: string; title: string; start: string; end: string; status: string; assignee?: string | null }
+  | { kind: "shoot"; id: string; title: string; start: string; end: string; shootType?: string; assignee?: string | null; status?: string };
 
 export function CalendarDayEvents({
   date: _date,
   events,
   onEditAppointment,
   onEditTask,
+  onEditShoot,
   onDeleted,
 }: {
   date: Date;
   events: CalendarEventItem[];
   onEditAppointment: (appointmentId: string) => void;
   onEditTask: (taskId: string) => void;
+  onEditShoot?: (shootId: string) => void;
   onDeleted: () => void;
 }) {
   if (events.length === 0) {
-    return <p className="text-muted-foreground">Bu gün için randevu veya görev yok.</p>;
+    return <p className="text-muted-foreground">Bu gün için randevu, görev veya çekim yok.</p>;
   }
 
   return (
@@ -32,7 +35,9 @@ export function CalendarDayEvents({
             <p className="font-medium">
               {ev.kind === "task" && ev.assignee && ev.assignee !== "—"
                 ? `(${ev.assignee}) ${ev.title}`
-                : ev.title}
+                : ev.kind === "shoot" && ev.assignee
+                  ? `(${ev.assignee}) ${ev.title}`
+                  : ev.title}
             </p>
             <p className="text-sm text-muted-foreground">
               {new Date(ev.start).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}
@@ -45,6 +50,11 @@ export function CalendarDayEvents({
             {ev.kind === "task" && (
               <p className="text-xs text-muted-foreground">
                 Görev · {(ev as { status?: string }).status ?? "—"} · {ev.assignee ?? "—"}
+              </p>
+            )}
+            {ev.kind === "shoot" && (
+              <p className="text-xs text-muted-foreground">
+                Çekim · {(ev as { shootType?: string }).shootType ?? "video"} · {(ev as { assignee?: string }).assignee ?? "—"}
               </p>
             )}
           </div>
@@ -71,6 +81,24 @@ export function CalendarDayEvents({
                 <CheckSquare className="h-3 w-3" />
                 Düzenle
               </Button>
+            )}
+            {ev.kind === "shoot" && (
+              <>
+                <Button variant="outline" size="sm" className="gap-1" onClick={() => onEditShoot?.(ev.id)}>
+                  <Video className="h-3 w-3" />
+                  Düzenle
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={async () => {
+                    const res = await fetch(`/api/projects/${ev.id}/archive`, { method: "PATCH" });
+                    if (res.ok) onDeleted();
+                  }}
+                >
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </>
             )}
           </div>
         </li>

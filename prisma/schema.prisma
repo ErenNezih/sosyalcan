@@ -15,7 +15,8 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  tasksAsAssignee Task[] @relation("TaskAssignee")
+  tasksAsAssignee       Task[]    @relation("TaskAssignee")
+  projectsAsAssignee    Project[] @relation("ProjectAssignee")
 }
 
 model Customer {
@@ -30,9 +31,47 @@ model Customer {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
-  projects      Project[]
-  appointments  Appointment[]
-  transactions  Transaction[]
+  projects       Project[]
+  appointments   Appointment[]
+  transactions   Transaction[]
+  paymentPlans   PaymentPlan[]
+}
+
+model PaymentPlan {
+  id          String   @id @default(cuid())
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id])
+  title       String
+  amountKurus Int
+  billingDay  Int
+  status      String   @default("active")
+  archivedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  instances PaymentInstance[]
+
+  @@index([customerId])
+}
+
+model PaymentInstance {
+  id             String        @id @default(cuid())
+  planId         String
+  plan           PaymentPlan   @relation(fields: [planId], references: [id])
+  customerId     String
+  month          String
+  dueAt          DateTime
+  amountKurus    Int
+  status         String        @default("due")
+  paidAt         DateTime?
+  transactionId  String?
+  archivedAt     DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([planId, month])
+  @@index([customerId, month])
+  @@index([status, dueAt])
 }
 
 model Project {
@@ -44,6 +83,11 @@ model Project {
   priority    String    @default("medium")
   startAt     DateTime?
   dueAt       DateTime?
+  endAt       DateTime?
+  shootType   String    @default("video")
+  location    String?
+  assigneeId  String?
+  assignee    User?     @relation("ProjectAssignee", fields: [assigneeId], references: [id])
   budgetKurus Int       @default(0)
   notes       String?
   archivedAt  DateTime?

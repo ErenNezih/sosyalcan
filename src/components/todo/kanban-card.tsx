@@ -14,6 +14,7 @@ type Task = {
   urgency: string;
   dueDate: string | null;
   order: number;
+  archivedAt?: string | null;
   assignee: { id: string; name: string | null; email?: string } | null;
 };
 
@@ -47,7 +48,7 @@ export function KanbanCard({
           <ArchiveRestoreDropdown
             entityType="task"
             entityId={task.id}
-            isArchived={!!(task as { is_deleted?: boolean }).is_deleted}
+            isArchived={!!task.archivedAt}
             onSuccess={onRefresh}
           />
         </div>

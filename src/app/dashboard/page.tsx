@@ -16,16 +16,48 @@ type Summary = {
   overdueTasks: Array<{ id: string; title: string; dueAt: string | null; status: string }>;
 };
 
+type Distribution = {
+  month: string;
+  totalIncomeKurus: number;
+  userA: { name: string; shareKurus: number } | null;
+  userB: { name: string; shareKurus: number } | null;
+  investmentShareKurus: number;
+};
+
+type PaymentAlerts = {
+  overdue: Array<{ id: string; customerName: string; planTitle: string; amountKurus: number }>;
+  paymentWindow: Array<{ id: string; customerName: string; planTitle: string; amountKurus: number }>;
+  upcoming: Array<{ id: string; customerName: string; planTitle: string; amountKurus: number }>;
+};
+
 export default function DashboardPage() {
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [distribution, setDistribution] = useState<Distribution | null>(null);
+  const [paymentAlerts, setPaymentAlerts] = useState<PaymentAlerts | null>(null);
 
   useEffect(() => {
     fetch("/api/dashboard/summary")
       .then((r) => (r.ok ? r.json() : null))
-      .then((data) => data?.ok ? setSummary(data.data) : setSummary(null));
+      .then((data) => (data?.ok ? setSummary(data.data) : setSummary(null)));
+  }, []);
+
+  useEffect(() => {
+    const month = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+    fetch(`/api/finance/distribution?month=${month}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => (data?.ok ? setDistribution(data.data) : setDistribution(null)));
+  }, []);
+
+  useEffect(() => {
+    const month = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+    fetch(`/api/payments/alerts?month=${month}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => (data?.ok ? setPaymentAlerts(data.data) : setPaymentAlerts(null)));
   }, []);
 
   const netRevenue = summary ? summary.netRevenueKurus / 100 : 0;
+  const fmt = (kurus: number) =>
+    new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY", maximumFractionDigits: 0 }).format(kurus / 100);
 
   return (
     <div className="space-y-8">
@@ -93,6 +125,82 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </FadeIn>
+
+      {(distribution || paymentAlerts) && (
+        <FadeIn as="section" delay={0.02} className="grid gap-4 md:grid-cols-2">
+          {distribution && (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Bu Ay Gelir Dağıtımı
+                </CardTitle>
+                <Link
+                  href="/dashboard/finance/distribution"
+                  className="text-xs text-primary hover:underline"
+                >
+                  Detaya git
+                </Link>
+              </CardHeader>
+              <CardContent className="space-y-1 text-sm">
+                {distribution.userA && (
+                  <p>
+                    {distribution.userA.name}: <span className="font-medium">{fmt(distribution.userA.shareKurus)}</span>
+                  </p>
+                )}
+                {distribution.userB && (
+                  <p>
+                    {distribution.userB.name}: <span className="font-medium">{fmt(distribution.userB.shareKurus)}</span>
+                  </p>
+                )}
+                <p>
+                  Yatırım: <span className="font-medium">{fmt(distribution.investmentShareKurus)}</span>
+                </p>
+              </CardContent>
+            </Card>
+          )}
+          {paymentAlerts && (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Müşteri Ödemeleri
+                </CardTitle>
+                <Link
+                  href="/dashboard/finance/payments"
+                  className="text-xs text-primary hover:underline"
+                >
+                  Detaya git
+                </Link>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                {paymentAlerts.overdue.length > 0 ? (
+                  <div>
+                    <p className="font-medium text-red-400">
+                      {paymentAlerts.overdue.length} ödeme gecikti
+                    </p>
+                    <ul className="mt-1 space-y-0.5 text-muted-foreground">
+                      {paymentAlerts.overdue.slice(0, 3).map((p) => (
+                        <li key={p.id}>
+                          {p.customerName} — {fmt(p.amountKurus)}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : paymentAlerts.paymentWindow.length > 0 ? (
+                  <p className="text-amber-400">
+                    {paymentAlerts.paymentWindow.length} ödeme alma zamanı
+                  </p>
+                ) : paymentAlerts.upcoming.length > 0 ? (
+                  <p className="text-yellow-400">
+                    {paymentAlerts.upcoming.length} ödeme yaklaşıyor
+                  </p>
+                ) : (
+                  <p className="text-muted-foreground">Bu ay ödeme uyarısı yok</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </FadeIn>
+      )}
 
       {summary && (summary.tasksDueSoon.length > 0 || summary.overdueTasks.length > 0 || summary.appointmentsToday.length > 0) && (
         <FadeIn as="section" delay={0.05} className="space-y-4">

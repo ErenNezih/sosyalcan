@@ -22,7 +22,7 @@ export async function GET(request: Request) {
 
   const events: Array<{
     id: string;
-    source: "task" | "appointment";
+    source: "task" | "appointment" | "shoot";
     title: string;
     start_at: string;
     end_at: string;
@@ -30,6 +30,9 @@ export async function GET(request: Request) {
     related_id?: string | null;
     assignee?: string | null;
     assigneeEmail?: string | null;
+    shootType?: string;
+    customer?: { id: string; name: string } | null;
+    status?: string;
   }> = [];
 
   try {
@@ -59,6 +62,52 @@ export async function GET(request: Request) {
             assigneeEmail: null,
           });
         }
+      }
+    }
+
+    if (types.has("shoot")) {
+      const fromDate = new Date(from);
+      const toDate = new Date(to);
+      const shoots = await prisma.project.findMany({
+        where: {
+          archivedAt: null,
+          startAt: { not: null },
+          OR: [
+            { endAt: { not: null } },
+            { dueAt: { not: null } },
+          ],
+        },
+        include: {
+          customer: { select: { id: true, name: true } },
+          assignee: { select: { name: true, email: true } },
+        },
+      });
+
+      for (const s of shoots) {
+        const startAt = s.startAt;
+        const endAt = s.endAt ?? s.dueAt;
+        if (!startAt || !endAt) continue;
+        const sStart = startAt.getTime();
+        const sEnd = endAt.getTime();
+        const fromMs = fromDate.getTime();
+        const toMs = toDate.getTime();
+        const overlaps = sStart <= toMs && sEnd >= fromMs;
+        if (!overlaps) continue;
+
+        const shootType = (s.shootType ?? "video").toUpperCase();
+        events.push({
+          id: s.id,
+          source: "shoot",
+          title: `[${shootType}] ${s.name}`,
+          start_at: startAt.toISOString(),
+          end_at: endAt.toISOString(),
+          type: "shoot",
+          assignee: s.assignee?.name ?? s.assignee?.email ?? null,
+          assigneeEmail: s.assignee?.email ?? null,
+          shootType: s.shootType ?? "video",
+          customer: s.customer ? { id: s.customer.id, name: s.customer.name } : null,
+          status: s.status,
+        });
       }
     }
 

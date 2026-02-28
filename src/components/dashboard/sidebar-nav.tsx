@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 
 const nav = [
   { href: "/dashboard", label: "Kokpit", icon: LayoutDashboard },
-  { href: "/dashboard/projects", label: "Projeler", icon: Briefcase },
+  { href: "/dashboard/projects", label: "Çekimler", icon: Briefcase },
   { href: "/dashboard/customers", label: "Müşteriler", icon: Users },
   { href: "/dashboard/calendar", label: "Takvim", icon: Calendar },
   { href: "/dashboard/todo", label: "To-Do", icon: CheckSquare },

@@ -21,7 +21,7 @@ export default function ProjectsPage() {
     try {
       const archived = showArchived ? "true" : "false";
       const res = await fetch(`/api/projects?archived=${archived}`);
-      if (!res.ok) throw new Error("Projeler yüklenemedi");
+      if (!res.ok) throw new Error("Çekimler yüklenemedi");
       const data = await res.json();
       setProjects(data.documents || []);
     } catch (error) {
@@ -39,14 +39,14 @@ export default function ProjectsPage() {
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Projeler</h1>
+          <h1 className="text-2xl font-semibold">Çekimler</h1>
           <p className="text-muted-foreground">
-            Aktif projeleri ve durumlarını yönetin.
+            Video ve drone çekimlerini planlayın ve yönetin.
           </p>
         </div>
         <Button onClick={() => setIsFormOpen(true)} className="gap-2">
           <Plus className="h-4 w-4" />
-          Yeni Proje
+          Çekim Ekle
         </Button>
       </div>
 

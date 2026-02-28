@@ -4,10 +4,12 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Plus } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { SlideOver } from "@/components/ui/slide-over";
 import { TransactionFormSimple } from "@/components/finance/transaction-form-simple";
+import { ArchiveRestoreDropdown } from "@/components/archive/archive-restore-dropdown";
 
 type Transaction = {
   id: string;
@@ -16,6 +18,7 @@ type Transaction = {
   dateAt: string;
   customerId: string | null;
   notes: string | null;
+  archivedAt?: string | null;
 };
 
 export default function FinancePage() {
@@ -46,10 +49,18 @@ export default function FinancePage() {
           <h1 className="text-2xl font-semibold">Finans</h1>
           <p className="text-muted-foreground">Gelir ve gider kayıtları</p>
         </div>
-        <Button onClick={() => setFormOpen(true)} className="gap-2">
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/dashboard/finance/distribution">Gelir Dağıtımı</Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="/dashboard/finance/payments">Müşteri Ödemeleri</Link>
+          </Button>
+          <Button onClick={() => setFormOpen(true)} className="gap-2">
           <Plus className="h-4 w-4" />
           İşlem Ekle
         </Button>
+        </div>
       </div>
 
       <div className="space-y-3">
@@ -79,6 +90,7 @@ export default function FinancePage() {
                 <th className="px-4 py-3 font-medium">Tür</th>
                 <th className="px-4 py-3 font-medium">Tutar</th>
                 <th className="px-4 py-3 font-medium">Not</th>
+                <th className="px-4 py-3 font-medium w-12">İşlem</th>
               </tr>
             </thead>
             <tbody>
@@ -96,6 +108,14 @@ export default function FinancePage() {
                     {new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" }).format(t.amount)}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{t.notes ?? "—"}</td>
+                  <td className="px-4 py-3">
+                    <ArchiveRestoreDropdown
+                      entityType="transaction"
+                      entityId={t.id}
+                      isArchived={!!t.archivedAt}
+                      onSuccess={onSuccess}
+                    />
+                  </td>
                 </tr>
               ))}
             </tbody>

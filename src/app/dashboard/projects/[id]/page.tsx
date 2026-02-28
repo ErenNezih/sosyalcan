@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DeliverableList } from "@/components/projects/deliverable-list";
 import { DeliverableForm } from "@/components/projects/deliverable-form";
-import { ArrowLeft, Calendar, Plus, Wallet } from "lucide-react";
+import { ProjectForm } from "@/components/projects/project-form";
+import { ArrowLeft, Calendar, Pencil, Plus, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
@@ -19,6 +20,7 @@ export default function ProjectDetailPage() {
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isEditFormOpen, setIsEditFormOpen] = useState(false);
   const [showArchivedDeliverables, setShowArchivedDeliverables] = useState(false);
 
   const fetchData = async () => {
@@ -30,7 +32,7 @@ export default function ProjectDetailPage() {
         fetch(`/api/deliverables?projectId=${id}&archived=${archived}`),
       ]);
 
-      if (!projectRes.ok) throw new Error("Proje bulunamadı");
+      if (!projectRes.ok) throw new Error("Çekim bulunamadı");
       
       const projectData = await projectRes.json();
       setProject(projectData);
@@ -57,21 +59,27 @@ export default function ProjectDetailPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => router.back()}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h1 className="text-2xl font-semibold flex items-center gap-2">
-            {project.name}
-            <Badge variant="outline" className="ml-2">
-              {project.status}
-            </Badge>
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            Oluşturulma: {format(new Date(project.createdAt || ""), "d MMM yyyy", { locale: tr })}
-          </p>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => router.back()}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-semibold flex items-center gap-2">
+              {project.name}
+              <Badge variant="outline" className="ml-2">
+                {project.status}
+              </Badge>
+            </h1>
+            <p className="text-muted-foreground text-sm">
+              Oluşturulma: {format(new Date(project.createdAt || ""), "d MMM yyyy", { locale: tr })}
+            </p>
+          </div>
         </div>
+        <Button variant="outline" size="sm" className="gap-2" onClick={() => setIsEditFormOpen(true)}>
+          <Pencil className="h-4 w-4" />
+          Çekimi Düzenle
+        </Button>
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
@@ -101,31 +109,59 @@ export default function ProjectDetailPage() {
 
         <div className="space-y-6">
           <div className="rounded-lg border border-white/10 bg-card p-6 space-y-4">
-            <h3 className="font-medium">Proje Detayları</h3>
+            <h3 className="font-medium">Çekim Detayları</h3>
             
             <div className="space-y-3 text-sm">
+              {(project as { shootType?: string }).shootType && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Tür</span>
+                  <span className="capitalize">{(project as { shootType?: string }).shootType}</span>
+                </div>
+              )}
+              {(project as { assignee?: { name: string } }).assignee && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Atanan</span>
+                  <span>{(project as { assignee: { name: string } }).assignee.name}</span>
+                </div>
+              )}
+              {(project as { customer?: { name: string } }).customer && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Müşteri</span>
+                  <span>{(project as { customer: { name: string } }).customer.name}</span>
+                </div>
+              )}
+              {(project as { location?: string }).location && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Konum</span>
+                  <span>{(project as { location: string }).location}</span>
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground flex items-center gap-2">
                   <Calendar className="h-4 w-4" /> Başlangıç
                 </span>
-                <span>{project.startDate ? format(new Date(project.startDate), "d MMM yyyy", { locale: tr }) : "-"}</span>
+                <span>{project.startDate ? format(new Date(project.startDate), "d MMM yyyy HH:mm", { locale: tr }) : "-"}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground flex items-center gap-2">
                   <Calendar className="h-4 w-4" /> Bitiş
                 </span>
-                <span className={project.dueDate ? "text-red-400" : ""}>
-                  {project.dueDate ? format(new Date(project.dueDate), "d MMM yyyy", { locale: tr }) : "-"}
+                <span className={(project as { endAt?: string }).endAt || project.dueDate ? "text-red-400" : ""}>
+                  {((project as { endAt?: string }).endAt || project.dueDate)
+                    ? format(new Date((project as { endAt?: string }).endAt || project.dueDate!), "d MMM yyyy HH:mm", { locale: tr })
+                    : "-"}
                 </span>
               </div>
-              <div className="flex items-center justify-between border-t border-white/5 pt-3">
-                <span className="text-muted-foreground flex items-center gap-2">
-                  <Wallet className="h-4 w-4" /> Bütçe
-                </span>
-                <span className="font-medium text-green-400">
-                  {project.budget ? new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" }).format(project.budget) : "-"}
-                </span>
-              </div>
+              {project.budget != null && project.budget > 0 && (
+                <div className="flex items-center justify-between border-t border-white/5 pt-3">
+                  <span className="text-muted-foreground flex items-center gap-2">
+                    <Wallet className="h-4 w-4" /> Bütçe
+                  </span>
+                  <span className="font-medium text-green-400">
+                    {new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" }).format(project.budget)}
+                  </span>
+                </div>
+              )}
             </div>
 
             {project.notes && (
@@ -143,6 +179,30 @@ export default function ProjectDetailPage() {
         onOpenChange={setIsFormOpen} 
         projectId={project.id} 
         onSuccess={fetchData} 
+      />
+
+      <ProjectForm
+        open={isEditFormOpen}
+        onOpenChange={setIsEditFormOpen}
+        onSuccess={() => { fetchData(); setIsEditFormOpen(false); }}
+        projectId={project.id}
+        initialData={{
+          title: project.name,
+          shootType: (project as { shootType?: "video" | "drone" }).shootType ?? "video",
+          startAt: (project.startDate || project.start_date)
+            ? new Date(project.startDate || project.start_date!).toISOString().slice(0, 16)
+            : "",
+          endAt: ((project as { endAt?: string }).endAt || project.dueDate || project.due_date)
+            ? new Date((project as { endAt?: string }).endAt || project.dueDate || project.due_date!).toISOString().slice(0, 16)
+            : "",
+          customerId: project.customerId ?? project.customer_id ?? undefined,
+          assigneeId: (project as { assigneeId?: string }).assigneeId ?? undefined,
+          location: (project as { location?: string }).location ?? undefined,
+          notes: project.notes ?? undefined,
+          status: ["planlandi", "cekimde", "kurgu", "revize", "teslim"].includes(project.status)
+            ? project.status
+            : "planlandi",
+        }}
       />
     </div>
   );

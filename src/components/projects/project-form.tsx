@@ -27,68 +27,120 @@ import {
 import { SlideOver } from "@/components/ui/slide-over";
 import { Customer } from "@/types";
 
-const projectSchema = z.object({
-  name: z.string().min(1, "Proje adı zorunludur"),
-  customerId: z.string().optional(),
-  status: z.enum(["active", "on_hold", "done", "archived"]).default("active"),
-  startDate: z.string().optional(),
-  dueDate: z.string().optional(),
-  budget: z.coerce.number().int().nonnegative().optional(),
-  priority: z.enum(["high", "medium", "low"]).default("medium"),
-  notes: z.string().optional(),
-});
+const shootSchema = z
+  .object({
+    title: z.string().min(2, "Çekim adı en az 2 karakter olmalı"),
+    shootType: z.enum(["video", "drone"]),
+    startAt: z.string().min(1, "Başlangıç zorunludur"),
+    endAt: z.string().min(1, "Bitiş zorunludur"),
+    customerId: z.string().optional(),
+    assigneeId: z.string().optional(),
+    location: z.string().optional(),
+    notes: z.string().optional(),
+    status: z.enum(["planlandi", "cekimde", "kurgu", "revize", "teslim"]).default("planlandi"),
+  })
+  .refine((d) => new Date(d.endAt) > new Date(d.startAt), {
+    message: "Bitiş tarihi başlangıçtan sonra olmalı",
+    path: ["endAt"],
+  });
 
-type ProjectFormValues = z.infer<typeof projectSchema>;
+type ShootFormValues = z.infer<typeof shootSchema>;
 
 interface ProjectFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  projectId?: string | null;
+  initialData?: {
+    title: string;
+    shootType: "video" | "drone";
+    startAt: string;
+    endAt: string;
+    customerId?: string;
+    assigneeId?: string;
+    location?: string;
+    notes?: string;
+    status: string;
+  } | null;
 }
 
-export function ProjectForm({ open, onOpenChange, onSuccess }: ProjectFormProps) {
+export function ProjectForm({ open, onOpenChange, onSuccess, projectId, initialData }: ProjectFormProps) {
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [users, setUsers] = useState<{ id: string; name: string; email?: string }[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const form = useForm<ProjectFormValues>({
-    resolver: zodResolver(projectSchema),
+  const form = useForm<ShootFormValues>({
+    resolver: zodResolver(shootSchema),
     defaultValues: {
-      name: "",
-      status: "active",
-      priority: "medium",
-      budget: 0,
+      title: "",
+      shootType: "video",
+      status: "planlandi",
+      startAt: "",
+      endAt: "",
     },
   });
 
   useEffect(() => {
+    if (open && initialData) {
+      form.reset({
+        title: initialData.title,
+        shootType: initialData.shootType,
+        startAt: initialData.startAt,
+        endAt: initialData.endAt,
+        customerId: initialData.customerId ?? "",
+        assigneeId: initialData.assigneeId ?? "",
+        location: initialData.location ?? "",
+        notes: initialData.notes ?? "",
+        status: initialData.status as ShootFormValues["status"],
+      });
+    }
+  }, [open, initialData, form]);
+
+  useEffect(() => {
     if (open) {
-      fetch("/api/customers")
-        .then((res) => res.json())
-        .then((data) => {
-          if (Array.isArray(data)) setCustomers(data);
-          else if (data.documents) setCustomers(data.documents);
+      Promise.all([
+        fetch("/api/customers").then((r) => r.json()),
+        fetch("/api/users").then((r) => (r.ok ? r.json() : [])),
+      ])
+        .then(([custData, usersData]) => {
+          if (Array.isArray(custData)) setCustomers(custData);
+          else if (custData?.documents) setCustomers(custData.documents);
+          else setCustomers([]);
+          setUsers(Array.isArray(usersData) ? usersData : []);
         })
-        .catch(() => toast.error("Müşteriler yüklenemedi"));
+        .catch(() => toast.error("Veriler yüklenemedi"));
     }
   }, [open]);
 
-  async function onSubmit(data: ProjectFormValues) {
+  async function onSubmit(data: ShootFormValues) {
     setLoading(true);
+    const isEdit = !!projectId;
     try {
-      const res = await fetch("/api/projects", {
-        method: "POST",
+      const url = isEdit ? `/api/projects/${projectId}` : "/api/projects";
+      const res = await fetch(url, {
+        method: isEdit ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          title: data.title,
+          shootType: data.shootType,
+          startAt: new Date(data.startAt).toISOString(),
+          endAt: new Date(data.endAt).toISOString(),
+          customerId: data.customerId || undefined,
+          assigneeId: data.assigneeId || undefined,
+          location: data.location || undefined,
+          notes: data.notes || undefined,
+          status: data.status,
+        }),
       });
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        toast.error(getApiErrorMessage(res, body, "Proje oluşturulamadı"));
+        toast.error(getApiErrorMessage(res, body, isEdit ? "Çekim güncellenemedi" : "Çekim oluşturulamadı"));
         return;
       }
 
-      toast.success("Proje oluşturuldu");
-      form.reset();
+      toast.success(isEdit ? "Çekim güncellendi" : "Çekim oluşturuldu");
+      form.reset({ title: "", shootType: "video", status: "planlandi", startAt: "", endAt: "" });
       onSuccess?.();
       onOpenChange(false);
     } catch (error) {
@@ -99,22 +151,74 @@ export function ProjectForm({ open, onOpenChange, onSuccess }: ProjectFormProps)
   }
 
   return (
-    <SlideOver title="Yeni Proje" open={open} onOpenChange={onOpenChange}>
+    <SlideOver title={projectId ? "Çekimi Düzenle" : "Yeni Çekim"} open={open} onOpenChange={onOpenChange}>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 p-4">
           <FormField
             control={form.control}
-            name="name"
+            name="title"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Proje Adı</FormLabel>
+                <FormLabel>Çekim Adı</FormLabel>
                 <FormControl>
-                  <Input placeholder="Örn: Web Sitesi Yenileme" {...field} />
+                  <Input placeholder="Örn: Reklam Film Çekimi" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
+
+          <FormField
+            control={form.control}
+            name="shootType"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Tür</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="video">Video</SelectItem>
+                    <SelectItem value="drone">Drone</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="startAt"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Başlangıç</FormLabel>
+                  <FormControl>
+                    <Input type="datetime-local" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="endAt"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Bitiş</FormLabel>
+                  <FormControl>
+                    <Input type="datetime-local" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
 
           <FormField
             control={form.control}
@@ -141,93 +245,64 @@ export function ProjectForm({ open, onOpenChange, onSuccess }: ProjectFormProps)
             )}
           />
 
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Durum</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="active">Aktif</SelectItem>
-                      <SelectItem value="on_hold">Beklemede</SelectItem>
-                      <SelectItem value="done">Tamamlandı</SelectItem>
-                      <SelectItem value="archived">Arşivlendi</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="priority"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Öncelik</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="high">Yüksek</SelectItem>
-                      <SelectItem value="medium">Orta</SelectItem>
-                      <SelectItem value="low">Düşük</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="startDate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Başlangıç Tarihi</FormLabel>
+          <FormField
+            control={form.control}
+            name="assigneeId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Atanan</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl>
-                    <Input type="date" {...field} />
+                    <SelectTrigger>
+                      <SelectValue placeholder="Atanan seçin" />
+                    </SelectTrigger>
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="dueDate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Bitiş Tarihi</FormLabel>
-                  <FormControl>
-                    <Input type="date" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
+                  <SelectContent>
+                    {users.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
           <FormField
             control={form.control}
-            name="budget"
+            name="status"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Bütçe (TL)</FormLabel>
+                <FormLabel>Durum</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="planlandi">Planlandı</SelectItem>
+                    <SelectItem value="cekimde">Çekimde</SelectItem>
+                    <SelectItem value="kurgu">Kurgu</SelectItem>
+                    <SelectItem value="revize">Revize</SelectItem>
+                    <SelectItem value="teslim">Teslim</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="location"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Konum</FormLabel>
                 <FormControl>
-                  <Input type="number" {...field} />
+                  <Input placeholder="Çekim yeri" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

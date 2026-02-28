@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, isToday } from "date-fns";
 import { tr } from "date-fns/locale";
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Plus, Calendar, CheckSquare, CreditCard } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Calendar, CheckSquare, CreditCard, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SlideOver } from "@/components/ui/slide-over";
 import { CalendarDayEvents } from "@/components/calendar/calendar-day-events";
@@ -13,20 +14,24 @@ import { TaskForm } from "@/components/todo/task-form";
 
 export type CalendarEventItem =
   | { kind: "appointment"; id: string; title: string; start: string; end: string; type: string; assignee?: string | null }
-  | { kind: "task"; id: string; title: string; start: string; end: string; status: string; assignee?: string | null; assigneeEmail?: string | null };
+  | { kind: "task"; id: string; title: string; start: string; end: string; status: string; assignee?: string | null; assigneeEmail?: string | null }
+  | { kind: "shoot"; id: string; title: string; start: string; end: string; shootType?: string; assignee?: string | null; status?: string };
 
 type CalendarApiEvent = {
   id: string;
-  source: "task" | "appointment";
+  source: "task" | "appointment" | "shoot";
   title: string;
   start_at: string;
   end_at: string;
   type: string;
   assignee?: string | null;
   assigneeEmail?: string | null;
+  shootType?: string;
+  status?: string;
 };
 
 export default function CalendarPage() {
+  const router = useRouter();
   const [current, setCurrent] = useState(new Date());
   const [events, setEvents] = useState<CalendarEventItem[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -58,28 +63,41 @@ export default function CalendarPage() {
     fetch(`/api/calendar?from=${from}&to=${to}&types=${types}`)
       .then((r) => (r.ok ? r.json() : { events: [] }))
       .then((data: { events: CalendarApiEvent[] }) => {
-        const mapped: CalendarEventItem[] = (data.events || []).map((e) =>
-          e.source === "task"
-            ? {
-                kind: "task" as const,
-                id: e.id,
-                title: e.title,
-                start: e.start_at,
-                end: e.end_at,
-                status: "todo",
-                assignee: e.assignee ?? "—",
-                assigneeEmail: e.assigneeEmail,
-              }
-            : {
-                kind: "appointment" as const,
-                id: e.id,
-                title: e.title,
-                start: e.start_at,
-                end: e.end_at,
-                type: e.type,
-                assignee: e.assignee,
-              }
-        );
+        const mapped: CalendarEventItem[] = (data.events || []).map((e) => {
+          if (e.source === "task") {
+            return {
+              kind: "task" as const,
+              id: e.id,
+              title: e.title,
+              start: e.start_at,
+              end: e.end_at,
+              status: "todo",
+              assignee: e.assignee ?? "—",
+              assigneeEmail: e.assigneeEmail,
+            };
+          }
+          if (e.source === "shoot") {
+            return {
+              kind: "shoot" as const,
+              id: e.id,
+              title: e.title,
+              start: e.start_at,
+              end: e.end_at,
+              shootType: e.shootType,
+              assignee: e.assignee ?? null,
+              status: e.status,
+            };
+          }
+          return {
+            kind: "appointment" as const,
+            id: e.id,
+            title: e.title,
+            start: e.start_at,
+            end: e.end_at,
+            type: e.type,
+            assignee: e.assignee,
+          };
+        });
         setEvents(mapped);
       });
   }
@@ -123,6 +141,7 @@ export default function CalendarPage() {
             {[
               { id: "crm", label: "CRM", icon: Calendar },
               { id: "todo", label: "To-Do", icon: CheckSquare },
+              { id: "shoot", label: "Çekimler", icon: Video },
               { id: "finance", label: "Finans", icon: CreditCard },
             ].map(({ id, label, icon: Icon }) => (
               <Button
@@ -184,13 +203,25 @@ export default function CalendarPage() {
                     <div
                       key={e.kind + e.id}
                       className={`truncate rounded px-1 py-0.5 text-xs ${
-                        e.kind === "task" ? "bg-amber-500/20 text-amber-400" : "bg-primary/20 text-primary"
+                        e.kind === "task"
+                          ? "bg-amber-500/20 text-amber-400"
+                          : e.kind === "shoot"
+                            ? "bg-violet-500/20 text-violet-400"
+                            : "bg-primary/20 text-primary"
                       }`}
-                      title={e.kind === "task" && e.assignee ? `(${e.assignee}) ${e.title}` : e.title}
+                      title={
+                        e.kind === "task" && e.assignee
+                          ? `(${e.assignee}) ${e.title}`
+                          : e.kind === "shoot" && e.assignee
+                            ? `(${e.assignee}) ${e.title}`
+                            : e.title
+                      }
                     >
                       {e.kind === "task" && e.assignee && e.assignee !== "—"
                         ? `(${e.assignee}) ${e.title}`
-                        : e.title}
+                        : e.kind === "shoot" && e.assignee
+                          ? `(${e.assignee}) ${e.title}`
+                          : e.title}
                     </div>
                   ))}
                   {dayEvents.length > 2 && (
@@ -219,6 +250,10 @@ export default function CalendarPage() {
             }}
             onEditTask={(id) => {
               setEditingTaskId(id);
+              setSelectedDate(null);
+            }}
+            onEditShoot={(id) => {
+              router.push(`/dashboard/projects/${id}`);
               setSelectedDate(null);
             }}
             onDeleted={loadEvents}
